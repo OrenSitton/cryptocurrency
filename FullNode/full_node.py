@@ -9,6 +9,7 @@ import select
 import logging
 from time import sleep
 import threading
+from synced_array import SyncedArray
 
 
 def open_configuration():
