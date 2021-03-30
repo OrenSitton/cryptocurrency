@@ -1,15 +1,11 @@
 """
 Author: Oren Sitton
-File: Block.py
+File: __init__.py
 Python Version: 3.8
 Description: 
 """
-
-
-class Block:
-    def __init__(self, transactions):
-        pass
-
+from Classes.Blockchain import Blockchain
+from Classes.synced_array import SyncedArray
 
 def main():
     pass
