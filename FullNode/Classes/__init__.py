@@ -5,7 +5,8 @@ Python Version: 3.8
 Description: 
 """
 from Classes.Blockchain import Blockchain
-from Classes.synced_array import SyncedArray
+from Classes.SyncedArray import SyncedArray
+
 
 def main():
     pass
