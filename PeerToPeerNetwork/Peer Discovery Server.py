@@ -21,6 +21,7 @@ def initialize_server(ip, port):
     :return: initialized server socket
     :rtype: socket.socket
     """
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setblocking(False)
     server.bind((ip, port))
@@ -44,13 +45,15 @@ def handle_message(request, ip_addresses, destination):
     :return: reply to send to client
     :rtype: str
     """
+
     if request == "GetAddresses\r\n":
-        if destination in ip_addresses and ip_addresses[3] != destination:
-            ip_addresses[ip_addresses.index(destination)] = ip_addresses[3]
+        if destination in ip_addresses and ip_addresses[len(ip_addresses) - 1] != destination:
+            ip_addresses[ip_addresses.index(destination)] = ip_addresses[len(ip_addresses) - 1]
+            # replace requester's address with a different address
 
         reply = "Addresses\r\n"
 
-        for x in range(3):
+        for x in range(len(ip_addresses) - 1):
             if ip_addresses[x] != "":
                 reply += ip_addresses[x] + "\r\n"
 
@@ -66,14 +69,21 @@ def handle_message(request, ip_addresses, destination):
 
 
 def main():
+    # open config file
     ip = "localhost"
     port = 8333
-
-    server = initialize_server(ip, port)
-
-    ip_addresses = ["", "192.168.0.1", "", ""]
+    addresses_amount = 3
+    ip_addresses = []
     count = 0
-    inputs = [server]
+    for x in range(addresses_amount + 1):
+        ip_addresses.append("")
+
+    # initiate server socket
+    server_socket = initialize_server(ip, port)
+
+    # main loop
+
+    inputs = [server_socket]
     outputs = []
     message_queues = {}
 
@@ -81,8 +91,8 @@ def main():
         readable, writable, exceptional = select.select(inputs, outputs, inputs)
 
         for sock in readable:
-            if sock is server:  # new connection
-                connection, client_address = server.accept()
+            if sock is server_socket:
+                connection, client_address = server_socket.accept()
                 connection.setblocking(False)
                 inputs.append(connection)
 
@@ -92,9 +102,9 @@ def main():
                 if client_address[0] not in ip_addresses:
                     ip_addresses[count] = client_address[0]
                     count += 1
-                    count %= 4
+                    count %= addresses_amount + 1
 
-            else:  # data from existing connection
+            else:
                 try:
                     data = sock.recv(4).decode()
                     if data:
@@ -140,7 +150,6 @@ def main():
                 if len(messages) == 0:
                     del message_queues[sock]
                     outputs.remove(sock)
-                    # inputs.remove(sock)
 
                 reply = handle_message(next_msg, ip_addresses, sock.getpeername()[0])
                 sock.send(reply.encode())
