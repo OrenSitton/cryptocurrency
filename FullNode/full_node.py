@@ -9,11 +9,11 @@ import select
 import logging
 import threading
 from time import sleep
+from Classes import SyncedArray
+from Classes import Blockchain
+from Classes import Transaction
 
-from Classes.SyncedArray import SyncedArray
-from Classes.Blockchain import Blockchain
-
-client_sockets = SyncedArray(name="client list")
+client_sockets = SyncedArray(name="clients list")
 
 
 def initiate_server(ip, port):
@@ -64,8 +64,7 @@ def initiate_clients(addresses, port):
                  .format(len(client_sockets)))
 
 
-
-def peer_seed(ip, port, **kwargs):
+def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
     if kwargs.get("attempts"):
         attempts = kwargs.get("attempts")
     else:
@@ -76,8 +75,14 @@ def peer_seed(ip, port, **kwargs):
     else:
         delay = 5
 
-    seed_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    seed_client.connect((ip, port))
+    peer_addresses = []
+
+    try:
+        seed_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        seed_client.connect((dns_ip, dns_port))
+
+    except ConnectionRefusedError:
+        attempts = 0
 
     for x in range(attempts):
         seed_client.send("0014GetAddresses\r\n".encode())
@@ -87,23 +92,28 @@ def peer_seed(ip, port, **kwargs):
 
         if data[0] == "Addresses" and len(data) > 2:
             seed_client.close()
-            return data[1:-1]
-
+            peer_addresses = data[1:-1]
+            break
         else:
             sleep(delay)
 
     seed_client.close()
-    return []
+
+    logging.info("Seeding yielded {} addresses".format(len(peer_addresses)))
+
+    initiate_clients(peer_addresses, peer_port)
+    del peer_addresses
 
 
 def main():
     # open configuration file
     ip = "localhost"
     port = 8334
-    seed_ip = "localhost"
-    seed_port = 8333
+    dns_ip = "localhost"
+    dns_port = 8333
 
     # initialize blockchain & transactions list
+    blockchain = Blockchain()
 
     # initiate server socket
     server_socket = initiate_server(ip, port)
@@ -111,12 +121,7 @@ def main():
                  .format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
 
     # initiate inputs list (from config file or from seed server)
-    peer_addresses = peer_seed(seed_ip, seed_port, attempts=1)
-    logging.info("Seeding yielded {} addresses".format(len(peer_addresses)))
-
-    # initiate clients
-    threading.Thread(name="client connection attempts", target=initiate_clients,args=(peer_addresses, port, )).start()
-    del peer_addresses
+    threading.Thread(name="seed clients", target=seed_clients, args=(dns_ip, dns_port, port, )).start()
 
     # main loop
 
@@ -133,7 +138,6 @@ def main():
                 connection.setblocking(False)
 
                 inputs.append(connection)
-
 
 
 if __name__ == '__main__':

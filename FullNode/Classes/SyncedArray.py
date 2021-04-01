@@ -1,6 +1,6 @@
 """
 Author: Oren Sitton
-File: synced_array.py
+File: SyncedArray.py
 Python Version: 3.8
 Description: 
 """

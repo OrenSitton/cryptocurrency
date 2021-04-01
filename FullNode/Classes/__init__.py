@@ -6,6 +6,7 @@ Description:
 """
 from Classes.Blockchain import Blockchain
 from Classes.SyncedArray import SyncedArray
+from Classes.Transaction import Transaction
 
 
 def main():
