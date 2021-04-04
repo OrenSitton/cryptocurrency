@@ -223,6 +223,17 @@ class SyncedArray:
     def __radd__(self, other):
         return self.__add__(other)
 
+    def __bool__(self):
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired reading lock for {}".format(self.name))
+
+        boolean_value = self.__len__() != 0
+
+        self.semaphore_lock.release()
+        logging.debug("Released reading lock for {}".format(self.name))
+
+        return boolean_value
+
     @property
     def array(self):
         """
