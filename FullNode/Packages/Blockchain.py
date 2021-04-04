@@ -7,7 +7,7 @@ Description:
 import csv
 import os
 import mysql.connector
-import datetime
+from datetime import datetime
 from hashlib import sha256
 
 
@@ -75,20 +75,23 @@ class Blockchain:
         # create Block table in Blockchain database if it doesn't exist yet
         self.cursor.execute("CREATE TABLE if not EXISTS Blocks (id int UNSIGNED PRIMARY KEY AUTO_INCREMENT, "
                             "block_number INT UNSIGNED, time_created TIMESTAMP, size MEDIUMINT, "
-                            "prev_hash VARCHAR(256) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
+                            "hash VARCHAR(256) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
                             "merkle_root_hash VARCHAR(256), transactions LONGBLOB)")
 
-    def append(self, block_number, timestamp, size, prev_hash, difficulty, nonce, merkle_root_hash, transactions):
+        if len(self) == 0:
+            self.append(0, 1, 0, "", 0, 0, "", "")
+
+    def append(self, block_number, timestamp, size, sha256_hash, difficulty, nonce, merkle_root_hash, transactions):
         """
         appends new block to the end of the blockchain
         :param block_number: number of block (distance from genesis block)
         :type block_number: int
-        :param timestamp: time block was created
-        :type timestamp: str
+        :param timestamp: time block was created (posix time)
+        :type timestamp: int
         :param size: size of the block in bits
         :type size: int
-        :param prev_hash: hash of the previous block
-        :type prev_hash: str
+        :param sha256_hash: hash of the  block
+        :type sha256_hash: str
         :param difficulty: difficulty of block (length of hash zero prefix)
         :type difficulty: int
         :param nonce: block nonce used to achieve targeted difficulty
@@ -98,10 +101,11 @@ class Blockchain:
         :param transactions: list of transactions to be included in the block
         :type transactions: str
         """
-
-        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, size, prev_hash, difficulty, nonce, "
+        datetime_object = datetime.fromtimestamp(timestamp)
+        timestamp = "{}-{}-{} {}:{}:{}".format(datetime_object.year, datetime_object.month, datetime_object.day, datetime_object.hour, datetime_object.minute, datetime_object.second)
+        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, size, hash, difficulty, nonce, "
                             "merkle_root_hash, transactions) VALUES ({}, \'{}\', {}, \"{}\", {}, {}, \"{}\", \"{}\")"
-                            .format(block_number, timestamp, size, prev_hash, difficulty, nonce, merkle_root_hash,
+                            .format(block_number, timestamp, size, sha256_hash, difficulty, nonce, merkle_root_hash,
                                     transactions))
         self.db.commit()
 
