@@ -14,7 +14,7 @@ class SyncedArray:
 
     Attributes
     ----------
-    array : list
+    __array : list
         a list containing the instances data
     name : str
         the name of the list (default "list")
@@ -193,6 +193,35 @@ class SyncedArray:
         self.__array[index] = value
 
         self.release_edit_permissions()
+
+    def __add__(self, other):
+        if isinstance(other, list):
+            self.semaphore_lock.acquire()
+            logging.debug("Acquired reading lock for {}".format(self.name))
+
+            combined_lists = other + self.__array
+
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+
+            return combined_lists
+
+        elif isinstance(other, SyncedArray):
+            self.semaphore_lock.acquire()
+            logging.debug("Acquired reading lock for {}".format(self.name))
+
+            combined_lists = self.__array + other.__array
+
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+
+            return combined_lists
+
+        else:
+            raise NotImplementedError("SyncedArray.__add__(other)")
+
+    def __radd__(self, other):
+        return self.__add__(other)
 
     @property
     def array(self):
