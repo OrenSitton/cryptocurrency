@@ -8,7 +8,6 @@ import csv
 import os
 import mysql.connector
 from datetime import datetime
-from hashlib import sha256
 
 
 class Blockchain:
