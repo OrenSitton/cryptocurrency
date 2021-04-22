@@ -83,7 +83,9 @@ class Flags:
 
     def __str__(self):
         self.semaphore_lock.acquire()
-        string_representation = self.__flags.__str__()
+        string_representation = "Flag : Value\n------------\n\n"
+        for key, value in self.__flags.items():
+            string_representation += "{} : {}\n".format(key, value)
         self.semaphore_lock.release()
 
         return string_representation

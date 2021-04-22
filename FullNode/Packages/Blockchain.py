@@ -74,15 +74,18 @@ class Blockchain:
         # create Block table in Blockchain database if it doesn't exist yet
         self.cursor.execute("CREATE TABLE if not EXISTS Blocks (id int UNSIGNED PRIMARY KEY AUTO_INCREMENT, "
                             "block_number INT UNSIGNED, time_created TIMESTAMP, size MEDIUMINT, "
-                            "hash VARCHAR(256) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
-                            "merkle_root_hash VARCHAR(256), transactions LONGBLOB)")
+                            "hash VARCHAR(64) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
+                            "merkle_root_hash VARCHAR(64), transactions LONGBLOB, self_hash VARCHAR(64))")
 
         if len(self) == 0:
-            self.append(0, 1, 0, "", 0, 0, "", "")
+            self.append(0, 1, 0, "", 0, 0, "", "", "")
 
-    def append(self, block_number, timestamp, size, sha256_hash, difficulty, nonce, merkle_root_hash, transactions):
+    def append(self, block_number, timestamp, size, sha256_hash, difficulty, nonce, merkle_root_hash, transactions,
+               self_hash):
         """
         appends new block to the end of the blockchain
+        :param self_hash:
+        :type self_hash:
         :param block_number: number of block (distance from genesis block)
         :type block_number: int
         :param timestamp: time block was created (posix time)
@@ -101,11 +104,12 @@ class Blockchain:
         :type transactions: str
         """
         datetime_object = datetime.fromtimestamp(timestamp)
-        timestamp = "{}-{}-{} {}:{}:{}".format(datetime_object.year, datetime_object.month, datetime_object.day, datetime_object.hour, datetime_object.minute, datetime_object.second)
+        timestamp = "{}-{}-{} {}:{}:{}".format(datetime_object.year, datetime_object.month, datetime_object.day,
+                                               datetime_object.hour, datetime_object.minute, datetime_object.second)
         self.cursor.execute("INSERT INTO Blocks (block_number, time_created, size, hash, difficulty, nonce, "
-                            "merkle_root_hash, transactions) VALUES ({}, \'{}\', {}, \"{}\", {}, {}, \"{}\", \"{}\")"
-                            .format(block_number, timestamp, size, sha256_hash, difficulty, nonce, merkle_root_hash,
-                                    transactions))
+                            "merkle_root_hash, transactions, self_hash) VALUES ({}, \'{}\', {}, \"{}\", {}, {}, "
+                            "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, size, sha256_hash, difficulty,
+                                                             nonce, merkle_root_hash, transactions, self_hash))
         self.db.commit()
 
     def __len__(self):
@@ -128,7 +132,7 @@ class Blockchain:
             string_repr = ""
 
             for x in range(self.__len__() - 1, 0, -1):
-                string_repr += "Data: {}\nHash:  {}\n ↓↓\n".format(self[x], self[x][5])
+                string_repr += "Data: {}\nHash:  {}\n ↓↓\n".format(self[x], self[x][9])
 
             string_repr += "Data: {}\nHash:  Genesis".format(self[0])
 
@@ -137,7 +141,7 @@ class Blockchain:
         else:
             return ""
 
-    def __getitem__(self, index):
+    def __getitem__(self, index, self_hash="a"):
         """
         return the item at the index requested (starting from 0)
         :param index: index of the item to return
@@ -155,8 +159,37 @@ class Blockchain:
 
         results = self.cursor.fetchall()
 
-        if len(results):
-            return results[0]
+        if results and self_hash == "a":
+            maximum_depth = results[0]
+            for result in results:
+                if self.get_depth(result[4]) > self.get_depth(maximum_depth[4]):
+                    maximum_depth = result
+
+            return maximum_depth
+
+        elif results and self_hash == "":
+            for result in results:
+                if result[9] == self_hash:
+                    return result
+
+        return None
+
+    def get_items(self, index):
+        if index < 0 or index >= self.__len__():
+            raise IndexError("")
+        elif not isinstance(index, int):
+            raise TypeError("")
+
+        index += 1
+
+        self.cursor.execute("SELECT * FROM Blocks WHERE id={}")
+
+        results = self.cursor.fetchall()
+
+        return results
+    
+    def get_item_consensus_chain(self, index):
+        pass
 
     def export(self, directory):
         current_directory = os.getcwd()

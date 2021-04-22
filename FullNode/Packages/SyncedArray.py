@@ -19,7 +19,7 @@ class SyncedArray:
     name : str
         the name of the list (default "list")
     max_readers : int
-        the maximum amount of simultaneous readers per instance
+        the maximum amount of simultaneous readers per instance (default 2)
     semaphore_lock : Semaphore
         a semaphore lock used to limit reading privileges
     write_lock : Lock
@@ -27,7 +27,7 @@ class SyncedArray:
 
     Methods
     -------
-    __init__(name="list")
+    __init__(name="list", max_readers=2)
         initializes the list and locks
     acquire_edit_permissions()
         acquires the write lock and read locks
@@ -250,6 +250,25 @@ class SyncedArray:
         logging.debug("Released reading lock for {}".format(self.name))
 
         return array
+
+    def __contains__(self, item):
+        """
+        checks if array contains item
+        :param item: item to check for
+        :type item: all types
+        :return: if item is in the array
+        :rtype: bool
+        """
+
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired reading lock for {}".format(self.name))
+
+        contains =  item in self.__array
+
+        self.semaphore_lock.release()
+        logging.debug("Released reading lock for {}".format(self.name))
+
+        return contains
 
 
 def main():
