@@ -10,6 +10,7 @@ import logging
 import queue
 import socket
 import threading
+import datetime
 from hashlib import sha256
 from time import sleep
 import select
@@ -283,20 +284,36 @@ Message Builder Functions
 
 
 def build_block_message(block):
-    block_number = block[1]
-    time_stamp = block[2]
-    hash = block[4]
-    difficulty = block[5]
-    nonce = block[6]
+    block_number = hexify(block[1], 6)
+    if True:
+        time = block[2]
+        year = time[:4]
+        month = time[5:7]
+        day = time[8:10]
+        hour = time[11:13]
+        minute = time[14:16]
+        second = time[17:19]
+    time_stamp = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timestamp()
+    prev_hash = block[4]
+    difficulty = hexify(block[5], 2)
+    nonce = hexify(block[6], 8)
     merkle_root_hash = block[7]
-    transactions = block[8]
-    self_hash = block[9]
+    block_transactions = block[8].split(",")
 
+    msg = "d{}{}{}{}{}{}{}".format(block_number, time_stamp, difficulty, nonce, prev_hash, merkle_root_hash,
+                                   hexify(len(block_transactions),2))
 
-    pass
+    for transaction in block_transactions:
+        msg += hexify(len(transaction), 2) + transaction
+
+    return msg
 
 
 def build_peers_message(peers_list):
+    msg = "b{}".format(hexify(len(peers_list), 2))
+    for address in peers_list:
+        hex_address = address.split(".")
+
     pass
 
 
