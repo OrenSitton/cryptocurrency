@@ -2,7 +2,6 @@
 Author: Oren Sitton
 File: SyncedArray.py
 Python Version: 3.8
-Description: 
 """
 import threading
 import logging
@@ -29,32 +28,40 @@ class SyncedArray:
     -------
     __init__(name="list", max_readers=2)
         initializes the list and locks
-    acquire_edit_permissions()
-        acquires the write lock and read locks
-    release_edit_permissions()
-        releases the write and read locks
-    append(value)
-        appends the value to the end of the array
-    remove(value)
-        removes the value from the array
-    __len__()
-        returns the length of the array
-    __str__()
-        returns the array as a string
+    __add__(other)
+        adds together self and another SyncedArray or standard list
+    __bool__()
+        determines whether the array is empty or not
+    __contains__(item)
+        checks if the array contains an item
     __getitem__(index)
         returns the item at the index(th) place in the array
+    __len__()
+        returns the length of the array
+    __radd__(other)
+        adds together self and another SyncedArray or standard list (opposite of __add__(other))
     __setitem__(index, value)
         sets the value of the item at the index(th) place in the array to value
-    array()
+    __str__()
+        returns the array as a string
+    acquire_edit_permissions(acquired=0)
+        acquires the write lock and read locks
+    append(value)
+        appends the value to the end of the array
+    release_edit_permissions(released=0)
+        releases the write and read locks
+    remove(value)
+        removes the value from the array
+    array
         returns a copy of the array, as a python list
     """
 
     def __init__(self, name="list", max_readers=2):
         """
-        initializes the list and locks
-        :param name: name of the list (to be shown in log messages)
+        initializes the array and the locks
+        :param name: name of the array (to be shown in logging messages)
         :type name: str
-        :param max_readers: the maximum amount of simultaneous readers
+        :param max_readers: maximum amount of simultaneous readers
         :type max_readers: int
         """
         self.__array = []
@@ -63,10 +70,190 @@ class SyncedArray:
         self.semaphore_lock = threading.Semaphore(value=self.max_readers)
         self.write_lock = threading.Lock()
 
+    def __add__(self, other):
+        """
+        adds together self and another SyncedArray or standard list
+        :param other: SyncedArray/lst to add
+        :type other: SyncedArray/list
+        :return: combined lists
+        :rtype: list
+        :raises: NotImplementedError: addition of SyncedArray and received type not implemented
+        """
+        if isinstance(other, list):
+            self.semaphore_lock.acquire()
+            logging.debug("Acquired reading lock for {}".format(self.name))
+
+            combined_lists = self.__array + other
+
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+
+            return combined_lists
+
+        elif isinstance(other, SyncedArray):
+            self.semaphore_lock.acquire()
+            logging.debug("Acquired reading lock for {}".format(self.name))
+
+            combined_lists = self.__array + other.array
+
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+
+            return combined_lists
+
+        else:
+            raise NotImplementedError("SyncedArray.__add__: addition of SyncedArray and received type not implemented")
+
+    def __bool__(self):
+        """
+        determines whether array is empty
+        :return: True if array is not empty, False if it is
+        :rtype: bool
+        """
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired reading lock for {}".format(self.name))
+
+        bool_value = self.__len__() != 0
+
+        self.semaphore_lock.release()
+        logging.debug("Released reading lock for {}".format(self.name))
+
+        return bool_value
+
+    def __contains__(self, item):
+        """
+        checks if the array contains an item
+        :param item: item to check for
+        :type item: Any
+        :return: True if item is in the array, False if else
+        :rtype: bool
+        """
+
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired reading lock for {}".format(self.name))
+
+        contains = item in self.__array
+
+        self.semaphore_lock.release()
+        logging.debug("Released reading lock for {}".format(self.name))
+
+        return contains
+
+    def __getitem__(self, index):
+        """
+        returns the item at the index(th) place in the array
+        :param index: index of item to return
+        :type index: int
+        :return: item at index(th) place
+        :rtype: Any
+        :raises: IndexError: index is not within range 0 < index < len(array) - 1
+        """
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired reading lock for {}".format(self.name))
+
+        if index < 0 or index > len(self.__array) - 1:
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+            raise IndexError("SyncedArray.__getitem__: index is not within range")
+
+        item = self.__array[index]
+
+        self.semaphore_lock.release()
+        logging.debug("Released reading lock for{}".format(self.name))
+
+        return item
+
+    def __len__(self):
+        """
+        returns the length of the array
+        :return: length of the array
+        :rtype: int
+        """
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired reading lock for {}".format(self.name))
+
+        length = self.__array.__len__()
+
+        self.semaphore_lock.release()
+        logging.debug("Released reading lock for {}".format(self.name))
+
+        return length
+
+    def __radd__(self, other):
+        """
+        adds together self and another SyncedArray or standard list
+        :param other: SyncedArray/lst to add
+        :type other: SyncedArray/list
+        :return: combined lists
+        :rtype: list
+        :raises: NotImplementedError: addition of SyncedArray and received type not implemented
+        """
+        if isinstance(other, list):
+            self.semaphore_lock.acquire()
+            logging.debug("Acquired reading lock for {}".format(self.name))
+
+            combined_lists = other + self.__array
+
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+
+            return combined_lists
+
+        elif isinstance(other, SyncedArray):
+            self.semaphore_lock.acquire()
+            logging.debug("Acquired reading lock for {}".format(self.name))
+
+            combined_lists = other.array + self.__array
+
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+
+            return combined_lists
+
+        else:
+            raise NotImplementedError("SyncedArray.__radd__: addition of SyncedArray and received type not implemented")
+
+    def __setitem__(self, index, value):
+        """
+        sets the value of the item at the index(th) place in the array to the value
+        :param index: index of the item to set to the value
+        :type index: int
+        :param value: value to set the index(th) item to
+        :type value: Any
+        :raises: IndexError: index is not within range 0 < index < len(array) - 1
+        """
+        self.semaphore_lock.acquire()
+        if index < 0 or index > len(self.__array) - 1:
+            self.semaphore_lock.release()
+            logging.debug("Released reading lock for {}".format(self.name))
+            raise IndexError("SyncedArray.__setitem__: index is not within range")
+
+        self.acquire_edit_permissions(acquired=1)
+
+        self.__array[index] = value
+
+        self.release_edit_permissions()
+
+    def __str__(self):
+        """
+        returns the array represented as a string
+        :return: array representation
+        :rtype: str
+        """
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired reading lock for {}".format(self.name))
+
+        array_string = self.__array.__str__()
+
+        self.semaphore_lock.release()
+        logging.debug("Released reading lock for {}".format(self.name))
+
+        return array_string
+
     def acquire_edit_permissions(self, acquired=0):
         """
         acquires the write lock and read locks
-        :param acquired: amount of semaphore locks already acquired by caller
+        :param acquired: amount of semaphore locks already acquired by caller (default 0)
         :type acquired: int
         """
         self.write_lock.acquire()
@@ -76,19 +263,6 @@ class SyncedArray:
             self.semaphore_lock.acquire()
 
         logging.debug("Acquired all reading locks for {}".format(self.name))
-
-    def release_edit_permissions(self, released=0):
-        """
-        releases the write and read locks
-        :param released: amount of semaphore locks already released by caller
-        :type released: int
-        """
-        self.write_lock.release()
-        logging.debug("Released write lock for {}".format(self.name))
-
-        for x in range(self.max_readers - released):
-            self.semaphore_lock.release()
-        logging.debug("Released all reading locks for {}".format(self.name))
 
     def append(self, value):
         """
@@ -101,6 +275,19 @@ class SyncedArray:
         self.__array.append(value)
 
         self.release_edit_permissions()
+
+    def release_edit_permissions(self, released=0):
+        """
+        releases the write and read locks
+        :param released: amount of semaphore locks already released by caller (default 0)
+        :type released: int
+        """
+        self.write_lock.release()
+        logging.debug("Released write lock for {}".format(self.name))
+
+        for x in range(self.max_readers - released):
+            self.semaphore_lock.release()
+        logging.debug("Released all reading locks for {}".format(self.name))
 
     def remove(self, value):
         """
@@ -119,121 +306,6 @@ class SyncedArray:
 
         self.release_edit_permissions()
 
-    def __len__(self):
-        """
-        returns the length of the array
-        :return: length of the array
-        :rtype: int
-        """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
-
-        length = self.__array.__len__()
-
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
-
-        return length
-
-    def __str__(self):
-        """
-        returns the array represented as a string
-        :return: array representation
-        :rtype: str
-        """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
-
-        array_string = self.__array.__str__()
-
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
-
-        return array_string
-
-    def __getitem__(self, index):
-        """
-        returns the item at the index(th) place in the array
-        :param index: index of item to return
-        :type index: int
-        :return: item at index(th) place
-        :rtype: Any
-        :raises: IndexError if index is not within range 0 < index < len(array) - 1
-        """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
-
-        if index < 0 or index > len(self.__array) - 1:
-            self.semaphore_lock.release()
-            raise IndexError("SyncedArray.__getitem__(index): list index out of range")
-
-        item = self.__array[index]
-
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for{}".format(self.name))
-
-        return item
-
-    def __setitem__(self, index, value):
-        """
-        sets the value of the item at the index(th) place in the array to value
-        :param index: index of item to set to value
-        :type index: int
-        :param value: value to set the index(th) item to
-        :type value: Any
-        :raises: IndexError if index is not within range 0 < index < len(array) - 1
-        """
-        self.semaphore_lock.acquire()
-        if index < 0 or index > len(self.__array) - 1:
-            self.semaphore_lock.release()
-            raise IndexError("SyncedArray.__setitem__(index, value): list index out of range")
-
-        self.acquire_edit_permissions(acquired=1)
-
-        self.__array[index] = value
-
-        self.release_edit_permissions()
-
-    def __add__(self, other):
-        if isinstance(other, list):
-            self.semaphore_lock.acquire()
-            logging.debug("Acquired reading lock for {}".format(self.name))
-
-            combined_lists = other + self.__array
-
-            self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
-
-            return combined_lists
-
-        elif isinstance(other, SyncedArray):
-            self.semaphore_lock.acquire()
-            logging.debug("Acquired reading lock for {}".format(self.name))
-
-            combined_lists = self.__array + other.__array
-
-            self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
-
-            return combined_lists
-
-        else:
-            raise NotImplementedError("SyncedArray.__add__(other)")
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __bool__(self):
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
-
-        boolean_value = self.__len__() != 0
-
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
-
-        return boolean_value
-
     @property
     def array(self):
         """
@@ -250,25 +322,6 @@ class SyncedArray:
         logging.debug("Released reading lock for {}".format(self.name))
 
         return array
-
-    def __contains__(self, item):
-        """
-        checks if array contains item
-        :param item: item to check for
-        :type item: all types
-        :return: if item is in the array
-        :rtype: bool
-        """
-
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
-
-        contains =  item in self.__array
-
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
-
-        return contains
 
 
 def main():
