@@ -31,17 +31,20 @@ class Blockchain:
         -------
         __init__(host="localhost", user="root", password="root")
             initializes the Blockchain database (if not initialized), the MySQl connector and the MySQL cursor
-        append(value)
-
+        __getitem__(block_number, prev_hash="")
+            return the block(s) at the requested number
         __len__()
-
-        __str__()
-
-        __getitem__(index)
-
+            calculates the length of the Blockchain's consensus chain
+        append(block_number, timestamp, size, prev_hash, difficulty, nonce, merkle_root_hash, transactions, self_hash)
+            appends new block to the blockchain database
         export(directory)
-
-
+            exports sql database into a csv file
+        get_depth(block_hash)
+            calculates the depth of the block with the given hash
+        get_blocks(block_number)
+            get method for blocks from all chains
+        get_block_consensus_chain(block_number)
+            get method for blocks on the consensus (longest) chain
         """
 
     def __init__(self, host="localhost", user="root", password="root"):
@@ -116,7 +119,7 @@ class Blockchain:
 
     def __len__(self):
         """
-        return the length of the Blockchain's consensus chain
+        calculates the length of the Blockchain's consensus chain
         :return: length of the blockchain's consensus chain
         :rtype: int
         """
