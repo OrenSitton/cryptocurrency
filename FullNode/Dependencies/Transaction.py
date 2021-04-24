@@ -1,15 +1,10 @@
 """
 Author: Oren Sitton
 File: Transaction.py
-Python Version: 3.8
-Description: 
+Python Version: 3
 """
 from datetime import datetime
 from hashlib import sha256
-import errno
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
 
 
 class Transaction:
@@ -31,10 +26,12 @@ class Transaction:
         initializes transaction instance
     __str__()
         returns string format of transaction
-    sha256_hash()
-        calculates sha256 hash of the transaction, per the Blemflark protocol
     network_format()
         converts Transaction object into a hexadecimal string of the transaction in the network protocol format
+    signing_format()
+        converts Transaction object into a hexadecimal string of the transaction as per signing protocol
+    sha256_hash()
+        calculates sha256 hash of the transaction, per the Blemflark protocol
 
     Static Methods
     --------------
@@ -45,19 +42,24 @@ class Transaction:
     """
     def __init__(self, timestamp, inputs, outputs):
         """
-        initiates transaction instance
+        initiates transaction object
         :param timestamp: time of the transaction
-        :type timestamp: datetime
-        :param inputs: list of transactions & signatures, as tuples (input address, transaction block number,
-                       transaction number, sender's signature)
+        :type timestamp: datetime/int
+        :param inputs: list of input keys, input sources & signatures, as tuples (input address, transaction block
+                       number, transaction number, sender's signature)
         :type inputs: list
         :param outputs: list of output keys & amount per key, as tuples (output key, amount)
         :type outputs: list
         """
         if not (isinstance(timestamp, int) or isinstance(timestamp, datetime)):
-            raise TypeError("Transaction.__init__(timestamp, inputs, outputs): expected timestamp to be of type int "
+            raise TypeError("Transaction.__init__: expected timestamp to be of type int "
                             "or datetime")
-        # TODO: error handling, check that inputs and outputs list are valid
+        for inp in inputs:
+            if len(inp) != 4:
+                raise ValueError("Transaction.__init__: expected input tuples to be of a length of 4")
+        for out in outputs:
+            if len(out) != 2:
+                raise ValueError("Transaction.__init__: expected output tuples to be of a length of 2")
 
         if isinstance(timestamp, int):
             self.timestamp = datetime.fromtimestamp(timestamp)
@@ -78,7 +80,7 @@ class Transaction:
             string_representation += "{}: {}.{}  |  {}\n".format(inp[0], inp[1], inp[2], inp[3])
         string_representation += "Outputs:\n"
         for output in self.outputs:
-            string_representation += "{}  |  {}\n".format(output[1], output[0])
+            string_representation += "{}: {}Bl\n".format(output[0], output[1])
         return string_representation[:-1]
 
     def network_format(self):
@@ -115,7 +117,7 @@ class Transaction:
 
     def signing_format(self):
         """
-        converts Transaction object into a hexadecimal string, as per Blemflark signing protocol
+        converts Transaction object into a hexadecimal string, as per signing protocol
         :return: hexadecimal transaction in signing format
         :rtype: str
         """
