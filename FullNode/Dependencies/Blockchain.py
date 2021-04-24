@@ -141,7 +141,7 @@ class Blockchain:
         else:
             return ""
 
-    def __getitem__(self, index, self_hash="a"):
+    def __getitem__(self, index, prev_hash=""):
         """
         return the item at the index requested (starting from 0)
         :param index: index of the item to return
@@ -159,7 +159,7 @@ class Blockchain:
 
         results = self.cursor.fetchall()
 
-        if results and self_hash == "a":
+        if results and not prev_hash:
             maximum_depth = results[0]
             for result in results:
                 if self.get_depth(result[4]) > self.get_depth(maximum_depth[4]):
@@ -167,9 +167,9 @@ class Blockchain:
 
             return maximum_depth
 
-        elif results and self_hash == "":
+        elif results:
             for result in results:
-                if result[9] == self_hash:
+                if result[4] == prev_hash:
                     return result
 
         return None

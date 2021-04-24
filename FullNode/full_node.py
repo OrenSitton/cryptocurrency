@@ -14,15 +14,16 @@ import datetime
 from hashlib import sha256
 from time import sleep
 import select
-from Packages import Blockchain
-from Packages import SyncedArray
-from Packages import Transaction
-from Packages import Flags
+import pickle
+from Dependencies import Blockchain
+from Dependencies import SyncedArray
+from Dependencies import Transaction
+from Dependencies import Flags
 import errno
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
-from pickle import dumps, loads
+
 
 
 """
@@ -63,7 +64,10 @@ Initiation Functions
 
 
 def get_config_data(data):
-    pass
+    with open("config.txt", "rb") as file:
+        configuration = pickle.load(file)
+
+    return configuration.get(data)
 
 
 def initiate_server(ip, port):
@@ -300,27 +304,26 @@ def build_block_message(block):
     merkle_root_hash = block[7]
     block_transactions = block[8].split(",")
 
-    msg = "d{}{}{}{}{}{}{}".format(block_number, time_stamp, difficulty, nonce, prev_hash, merkle_root_hash,
+    message = "d{}{}{}{}{}{}{}".format(block_number, time_stamp, difficulty, nonce, prev_hash, merkle_root_hash,
                                    hexify(len(block_transactions),2))
 
     for transaction in block_transactions:
-        msg += hexify(len(transaction), 2) + transaction
+        message += hexify(len(transaction), 2) + transaction
 
-    return msg
+    return message
 
 
 def build_peers_message(peers_list):
-    msg = "b{}".format(hexify(len(peers_list), 2))
+    message = "b{}".format(hexify(len(peers_list), 2))
     for address in peers_list:
-        hex_address = address.split(".")
-
-    pass
+        address_bytes = address.split(".")
+        for byte in address_bytes:
+            message += hexify(int(byte), 2)
+    return message
 
 
 def build_error_message(error_message):
     message = "f{}".format(hexify_string(error_message))
-    message_length = hexify(len(message), 5)
-    message = "{}{}".format(message_length, message)
     return message
 
 
@@ -332,40 +335,30 @@ Network Protocol Functions
 
 
 def handle_peer_request_message():
-    peer_count = 0
-    reply = ""
-
-    for peer in inputs:
-        peer_count += 1
-        address = peer.getpeername()[0]
-        if address == "localhost":
-            reply += "{}{}{}{}".format(hexify(127, 2), hexify(0, 2), hexify(0, 2), hexify(1, 2))
-        else:
-            address = address.split(".")
-            reply += "{}{}{}{}".format(hexify(address[0], 2), hexify(address[1], 2), hexify(address[2], 2),
-                                       hexify(address[3], 2))
-
-    reply = "b{}{}".format(hexify(peer_count, 2), reply)
-    return reply
+    reply = build_peers_message(inputs.array)
+    reply = "{}{}".format(hexify(len(reply), 5), reply)
+    return reply, 1
 
 
 def handle_peer_message(message):
-    pass
+    peer_count = int(message[1:3])
+    message = message[3:]
+
+    addresses = []
+
+    for x in peer_count:
+        byte1 = int(message[:2], 16)
+        byte2 = int(message[2:4], 16)
+        byte3 = int(message[4:6], 16)
+        byte4 = int(message[6:8], 16)
+        address = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
+        addresses.append(address)
+        message = message[8:]
+    threading.Thread(name="Peer Seeding Thread", target=initiate_clients, args=(addresses, 8333,)).start()
+    return None, -1
 
 
 def handle_block_request_message(message, blockchain):
-    """
-
-    :param blockchain:
-    :type blockchain:
-    :param message:
-    :type message: str
-    :return:
-    :rtype:
-    """
-    # check if database has block
-    # if multiple - send from longest branch
-    # send it to requesting node
     if len(message) != 71:
         # message not in correct format
         return None, -1
@@ -378,19 +371,19 @@ def handle_block_request_message(message, blockchain):
             return None, -1
         elif block_number == 0:
             block_number = blockchain.__len__()
-        else:
-            # return requested block if have, else return nothing
-            msg = ""
-            blocks = blockchain.get_items(block_number - 1)
 
-            for block in blocks:
-                if block[4] == previous_block_hash:
-                    return build_block_message(block), 1
+        # return requested block if have, else return nothing
+        block = blockchain.__getitem__(block_number - 1, prev_hash=previous_block_hash)
 
-            return None, -1
+        if block:
+            reply = build_block_message(block)
+            return "{}{}".format(hexify(len(reply), 5), reply), 1
+
+        return None, -1
 
 
 def handle_block_message(message, blockchain):
+    # TODO: finish implementation
     # check block validity
     # find which block it matches, remove other blocks if branch big enough
     # end mining thread
@@ -464,11 +457,11 @@ def handle_message(message, blockchain):
     message_type = message[:1]
 
     if message_type not in message_handling_functions:
-        reply = build_error_message("unrecognized message type"), 1
+        reply = build_error_message("unrecognized message type")
+        reply = "{}{}".format(hexify(len(reply), 5), reply)
+        return reply, 1
     else:
-        reply = message_handling_functions[message_type]
-
-    return reply
+        return message_handling_functions[message_type]
 
 
 """
@@ -527,7 +520,7 @@ def main():
     dns_ip = "localhost"
     dns_port = 8666
 
-    blockchain = Blockchain()
+    blockchain = Blockchain()  # TODO: call blockchain with SQL data
 
     server_socket = initiate_server(ip, port)
     logging.info("Server initiated [{}, {}]"
@@ -547,16 +540,16 @@ def main():
         readable, writable, exceptional = select.select(inputs + client_sockets.array, outputs, inputs)
 
         for sock in readable:
-            if sock is server_socket:
+            if sock is server_socket:  # new socket has connected to the server
                 connection, client_address = server_socket.accept()
                 connection.setblocking(False)
-
                 inputs.append(connection)
+                logging.info("[{}, {}]: New node connected".format(client_address[0], client_address[1]))
 
             else:
                 size = sock.read(5).decode()
                 if not size:
-                    logging.info("Client disconnected [{}, {}]"
+                    logging.info("[{}, {}]: Node disconnected"
                                  .format(sock.getpeername()[0], sock.getpeername()[1]))
                     inputs.remove(sock)
                     if sock in outputs:
