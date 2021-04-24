@@ -28,6 +28,10 @@ class Flags:
     -------
     __init__(name="dictionary")
         initializes the list and locks
+    __getitem__(flag)
+        returns the value of flags[flag]
+     __setitem__(flag, value)
+        sets the flag to value
     __str__()
         returns the dictionary as a string
     acquire_edit_permissions(acquired=0)
@@ -38,8 +42,6 @@ class Flags:
         releases the write and read locks
     release_read_permissions()
         releases read lock
-    set_flag(flag, value)
-        sets the flag to value
     """
 
     def __init__(self, name="flags", max_readers=2):
@@ -55,6 +57,24 @@ class Flags:
         self.max_readers = max_readers
         self.semaphore_lock = Semaphore(value=self.max_readers)
         self.write_lock = Lock()
+
+    def __getitem__(self, flag):
+        """
+        returns the value of flags[flag]
+        :param flag: flag to return item for
+        :type flag: Any
+        :return: flags[flag]
+        :rtype: Any
+        """
+        self.acquire_read_permissions()
+        item = self.__flags.get(flag)
+        self.release_read_permissions()
+        return item
+
+    def __setitem__(self, flag, value):
+        self.acquire_edit_permissions()
+        self.__flags[flag] = value
+        self.release_edit_permissions()
 
     def __str__(self):
         """
@@ -93,11 +113,6 @@ class Flags:
     def release_read_permissions(self):
         self.semaphore_lock.release()
         logging.debug("Released read lock for {}".format(self.name))
-
-    def set_flag(self, flag, value):
-        self.acquire_edit_permissions()
-        self.__flags[flag] = value
-        self.release_edit_permissions()
 
 
 def main():
