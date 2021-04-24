@@ -1,7 +1,7 @@
 """
 Author: Oren Sitton
 File: SyncedArray.py
-Python Version: 3.8
+Python Version: 3
 """
 import threading
 import logging
@@ -46,10 +46,14 @@ class SyncedArray:
         returns the array as a string
     acquire_edit_permissions(acquired=0)
         acquires the write lock and read locks
+    acquired_read_permission()
+
     append(value)
         appends the value to the end of the array
     release_edit_permissions(released=0)
         releases the write and read locks
+    released_read_permission()
+
     remove(value)
         removes the value from the array
     array
@@ -80,24 +84,20 @@ class SyncedArray:
         :raises: NotImplementedError: addition of SyncedArray and received type not implemented
         """
         if isinstance(other, list):
-            self.semaphore_lock.acquire()
-            logging.debug("Acquired reading lock for {}".format(self.name))
+            self.acquire_read_permission()
 
             combined_lists = self.__array + other
 
-            self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
+            self.release_read_permission()
 
             return combined_lists
 
         elif isinstance(other, SyncedArray):
-            self.semaphore_lock.acquire()
-            logging.debug("Acquired reading lock for {}".format(self.name))
+            self.acquire_read_permission()
 
             combined_lists = self.__array + other.array
 
-            self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
+            self.release_read_permission()
 
             return combined_lists
 
@@ -110,13 +110,11 @@ class SyncedArray:
         :return: True if array is not empty, False if it is
         :rtype: bool
         """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
+        self.acquire_read_permission()
 
         bool_value = self.__len__() != 0
 
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
+        self.release_read_permission()
 
         return bool_value
 
@@ -129,13 +127,11 @@ class SyncedArray:
         :rtype: bool
         """
 
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
+        self.acquire_read_permission()
 
         contains = item in self.__array
 
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
+        self.release_read_permission()
 
         return contains
 
@@ -148,8 +144,7 @@ class SyncedArray:
         :rtype: Any
         :raises: IndexError: index is not within range 0 < index < len(array) - 1
         """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
+        self.acquire_read_permission()
 
         if index < 0 or index > len(self.__array) - 1:
             self.semaphore_lock.release()
@@ -158,8 +153,7 @@ class SyncedArray:
 
         item = self.__array[index]
 
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for{}".format(self.name))
+        self.release_read_permission()
 
         return item
 
@@ -169,13 +163,11 @@ class SyncedArray:
         :return: length of the array
         :rtype: int
         """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
+        self.acquire_read_permission()
 
         length = self.__array.__len__()
 
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
+        self.release_read_permission()
 
         return length
 
@@ -189,24 +181,20 @@ class SyncedArray:
         :raises: NotImplementedError: addition of SyncedArray and received type not implemented
         """
         if isinstance(other, list):
-            self.semaphore_lock.acquire()
-            logging.debug("Acquired reading lock for {}".format(self.name))
+            self.acquire_read_permission()
 
             combined_lists = other + self.__array
 
-            self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
+            self.release_read_permission()
 
             return combined_lists
 
         elif isinstance(other, SyncedArray):
-            self.semaphore_lock.acquire()
-            logging.debug("Acquired reading lock for {}".format(self.name))
+            self.acquire_read_permission()
 
             combined_lists = other.array + self.__array
 
-            self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
+            self.release_read_permission()
 
             return combined_lists
 
@@ -222,17 +210,16 @@ class SyncedArray:
         :type value: Any
         :raises: IndexError: index is not within range 0 < index < len(array) - 1
         """
-        self.semaphore_lock.acquire()
+        self.acquire_read_permission()
         if index < 0 or index > len(self.__array) - 1:
-            self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
+            self.release_read_permission()
             raise IndexError("SyncedArray.__setitem__: index is not within range")
 
-        self.acquire_edit_permissions(acquired=1)
+        self.acquire_write_permission(acquired=1)
 
         self.__array[index] = value
 
-        self.release_edit_permissions()
+        self.release_write_permission()
 
     def __str__(self):
         """
@@ -240,17 +227,15 @@ class SyncedArray:
         :return: array representation
         :rtype: str
         """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
+        self.acquire_read_permission()
 
         array_string = self.__array.__str__()
 
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
+        self.release_read_permission()
 
         return array_string
 
-    def acquire_edit_permissions(self, acquired=0):
+    def acquire_write_permission(self, acquired=0):
         """
         acquires the write lock and read locks
         :param acquired: amount of semaphore locks already acquired by caller (default 0)
@@ -262,7 +247,11 @@ class SyncedArray:
         for x in range(self.max_readers - acquired):
             self.semaphore_lock.acquire()
 
-        logging.debug("Acquired all reading locks for {}".format(self.name))
+        logging.debug("Acquired all read locks for {}".format(self.name))
+
+    def acquire_read_permission(self):
+        self.semaphore_lock.acquire()
+        logging.debug("Acquired read lock for {}".format(self.name))
 
     def append(self, value):
         """
@@ -270,13 +259,13 @@ class SyncedArray:
         :param value: value to append
         :type value: Any
         """
-        self.acquire_edit_permissions()
+        self.acquire_write_permission()
 
         self.__array.append(value)
 
-        self.release_edit_permissions()
+        self.release_write_permission()
 
-    def release_edit_permissions(self, released=0):
+    def release_write_permission(self, released=0):
         """
         releases the write and read locks
         :param released: amount of semaphore locks already released by caller (default 0)
@@ -289,6 +278,10 @@ class SyncedArray:
             self.semaphore_lock.release()
         logging.debug("Released all reading locks for {}".format(self.name))
 
+    def release_read_permission(self):
+        self.semaphore_lock.release()
+        logging.debug("Released read lock for {}".format(self.name))
+
     def remove(self, value):
         """
         removes the value from the array
@@ -300,11 +293,11 @@ class SyncedArray:
             self.semaphore_lock.release()
             raise ValueError("SyncedArray.remove(value): value not in list")
 
-        self.acquire_edit_permissions(1)
+        self.acquire_write_permission(1)
 
         self.__array.remove(value)
 
-        self.release_edit_permissions()
+        self.release_write_permission()
 
     @property
     def array(self):
@@ -313,13 +306,11 @@ class SyncedArray:
         :return: array
         :rtype: list
         """
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired reading lock for {}".format(self.name))
+        self.acquire_read_permission()
 
         array = self.__array.copy()
 
-        self.semaphore_lock.release()
-        logging.debug("Released reading lock for {}".format(self.name))
+        self.release_read_permission()
 
         return array
 
