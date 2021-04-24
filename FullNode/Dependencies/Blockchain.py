@@ -2,11 +2,11 @@
 Author: Oren Sitton
 File: Blockchain.py
 Python Version: 3
-Description: 
 """
+
 import csv
 import os
-import mysql.connector
+from mysql import connector
 from datetime import datetime
 
 
@@ -56,7 +56,7 @@ class Blockchain:
         """
 
         # connect to MySQL server
-        self.db = mysql.connector.connect(
+        self.db = connector.connect(
             host=host,
             user=user,
             passwd=password,
@@ -80,82 +80,22 @@ class Blockchain:
         if len(self) == 0:
             self.append(0, 1, 0, "", 0, 0, "", "", "")
 
-    def append(self, block_number, timestamp, size, sha256_hash, difficulty, nonce, merkle_root_hash, transactions,
-               self_hash):
+    def __getitem__(self, block_number, prev_hash=""):
         """
-        appends new block to the end of the blockchain
-        :param self_hash:
-        :type self_hash:
-        :param block_number: number of block (distance from genesis block)
-        :type block_number: int
-        :param timestamp: time block was created (posix time)
-        :type timestamp: int
-        :param size: size of the block in bits
-        :type size: int
-        :param sha256_hash: hash of the  block
-        :type sha256_hash: str
-        :param difficulty: difficulty of block (length of hash zero prefix)
-        :type difficulty: int
-        :param nonce: block nonce used to achieve targeted difficulty
-        :type nonce: int
-        :param merkle_root_hash: root of transactions merkle tree
-        :type merkle_root_hash: str
-        :param transactions: list of transactions to be included in the block
-        :type transactions: str
-        """
-        datetime_object = datetime.fromtimestamp(timestamp)
-        timestamp = "{}-{}-{} {}:{}:{}".format(datetime_object.year, datetime_object.month, datetime_object.day,
-                                               datetime_object.hour, datetime_object.minute, datetime_object.second)
-        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, size, hash, difficulty, nonce, "
-                            "merkle_root_hash, transactions, self_hash) VALUES ({}, \'{}\', {}, \"{}\", {}, {}, "
-                            "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, size, sha256_hash, difficulty,
-                                                             nonce, merkle_root_hash, transactions, self_hash))
-        self.db.commit()
-
-    def __len__(self):
-        """
-        return the length of the Blockchain
-        :return: length of the blockchain
-        :rtype: int
-        """
-        self.cursor.execute("SELECT * FROM Blocks")
-
-        return len(self.cursor.fetchall())
-
-    def __str__(self):
-        """
-        returns the string representation of the blockchain
-        :return: string representation of the blockchain
-        :rtype: str
-        """
-        if self.__len__():
-            string_repr = ""
-
-            for x in range(self.__len__() - 1, 0, -1):
-                string_repr += "Data: {}\nHash:  {}\n ↓↓\n".format(self[x], self[x][9])
-
-            string_repr += "Data: {}\nHash:  Genesis".format(self[0])
-
-            return string_repr
-
-        else:
-            return ""
-
-    def __getitem__(self, index, prev_hash=""):
-        """
-        return the item at the index requested (starting from 0)
-        :param index: index of the item to return
+        return the block(s) at the requested number
+        :param index: number of the block(s) to return
         :type index: int
-        :return: requested block
-        :rtype: (str, str)
+        :return: requested block(s)
+        :rtype: tuple
+        :raises: IndexError: block number is not within range
+        :raises: TypeError: expected block number to be of type int
         """
-        if index < 0 or index >= self.__len__():
+        if block_number < 1 or block_number > self.__len__():
             raise IndexError("Blockchain.__getitem__: index out of range")
-        elif not isinstance(index, int):
-            raise TypeError("Blockchain.__getitem__: index must be an integer")
+        elif not isinstance(block_number, int):
+            raise TypeError("Blockchain.__getitem__: expected block number to be of type int")
 
-        index += 1
-        self.cursor.execute("SELECT * FROM Blocks WHERE id={}".format(index))
+        self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
 
         results = self.cursor.fetchall()
 
@@ -174,24 +114,60 @@ class Blockchain:
 
         return None
 
-    def get_items(self, index):
-        if index < 0 or index >= self.__len__():
-            raise IndexError("")
-        elif not isinstance(index, int):
-            raise TypeError("")
+    def __len__(self):
+        """
+        return the length of the Blockchain's consensus chain
+        :return: length of the blockchain's consensus chain
+        :rtype: int
+        """
+        self.cursor.execute("SELECT * FROM Blocks ORDER BY block_number DESC LIMIT 1")
 
-        index += 1
+        block = self.cursor.fetchall()
 
-        self.cursor.execute("SELECT * FROM Blocks WHERE id={}")
+        if block:
+            return block[1]
+        else:
+            return 0
 
-        results = self.cursor.fetchall()
-
-        return results
-    
-    def get_item_consensus_chain(self, index):
-        pass
+    def append(self, block_number, timestamp, size, prev_hash, difficulty, nonce, merkle_root_hash, transactions,
+               self_hash):
+        """
+        appends new block to the blockchain database
+        :param block_number: number of block (distance from genesis block)
+        :type block_number: int
+        :param timestamp: time block was created (posix time)
+        :type timestamp: int
+        :param size: size of the block in bits
+        :type size: int
+        :param prev_hash: hash of the previous block
+        :type prev_hash: str
+        :param difficulty: difficulty of block (length of hash zero prefix)
+        :type difficulty: int
+        :param nonce: block nonce used to achieve targeted difficulty
+        :type nonce: int
+        :param merkle_root_hash: root of transactions merkle tree
+        :type merkle_root_hash: str
+        :param transactions: list of transactions to be included in the block
+        :type transactions: str
+        :param self_hash: hash of the block
+        :type self_hash: str
+        """
+        datetime_object = datetime.fromtimestamp(timestamp)
+        timestamp = "{}-{}-{} {}:{}:{}".format(datetime_object.year, datetime_object.month, datetime_object.day,
+                                               datetime_object.hour, datetime_object.minute, datetime_object.second)
+        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, size, hash, difficulty, nonce, "
+                            "merkle_root_hash, transactions, self_hash) VALUES ({}, \'{}\', {}, \"{}\", {}, {}, "
+                            "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, size, prev_hash, difficulty,
+                                                             nonce, merkle_root_hash, transactions, self_hash))
+        self.db.commit()
 
     def export(self, directory):
+        """
+        exports sql database into a csv file
+        :param directory: directory to save database into
+        :type directory: str
+        """
+        # TODO: add error handling
         current_directory = os.getcwd()
         os.chdir(directory)
 
@@ -216,8 +192,60 @@ class Blockchain:
 
         os.chdir(current_directory)
 
+    def get_depth(self, block_hash):
+        """
+        calculates the depth of the block with the given hash
+        :param block_hash: hash of block
+        :type block_hash: str
+        :return: depth of block
+        :rtype: int
+        :raises: TypeError: expected block_hash to be of type str
+        """
+        if not isinstance(block_hash, str):
+            raise TypeError("Blockchain.get_depth: expected block hash to be of type str")
+        # TODO: implement function
+
+    def get_blocks(self, block_number):
+        """
+        get method for blocks from all chains
+        :param block_number: requested block number
+        :type block_number: int
+        :return: all blocks with requested block number
+        :rtype: tuple
+        :raises: IndexError: block number is not within range
+        :raises: TypeError: expected block number to be of type int
+        """
+        if block_number < 1 or block_number > self.__len__():
+            raise IndexError("Blockchain.get_blocks: block number not within range")
+        elif not isinstance(block_number, int):
+            raise TypeError("Blockchain.get_blocks: expected block number to be of type int")
+
+        self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
+
+        results = self.cursor.fetchall()
+
+        return results
+    
+    def get_block_consensus_chain(self, block_number):
+        """
+        get method for blocks on the consensus (longest) chain
+        :param block_number: block number of requested block
+        :type block_number: int
+        :return: requested block
+        :rtype: tuple
+        :raises: IndexError: block number is not within range
+        :raises: TypeError: expected block number to be of type int
+        """
+        if block_number < 1 or block_number > self.__len__():
+            raise IndexError("Blockchain.get_blocks: block number not within range")
+        elif not isinstance(block_number, int):
+            raise TypeError("Blockchain.get_blocks: expected block number to be of type int")
+
+        # TODO: implement function
+
 
 def main():
+    print(Blockchain())
     pass
 
 
