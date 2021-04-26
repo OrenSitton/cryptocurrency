@@ -362,6 +362,21 @@ def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
     return sha256(value.encode()).hexdigest()
 
 
+def calculate_merkle_root_hash(block_transactions):
+    for x in range(len(block_transactions)):
+        block_transactions[x] = block_transactions[x].sha256_hash()
+    if not len(block_transactions):
+        return "0" * 256
+    while len(block_transactions) != 1:
+        tmp_transactions = []
+        for x in range(0, len(block_transactions) - 1, 2):
+            hash1 = block_transactions[x]
+            hash2 = block_transactions[x + 1]
+            tmp_transactions.append(sha256("{}{}".format(hash1, hash2).encode()))
+        block_transactions = tmp_transactions
+    return block_transactions[0]
+
+
 """
 Message Builder Functions
 -------------------------
@@ -564,27 +579,22 @@ def handle_block_message(message, blockchain):
     block_transactions = [first_transaction] + block_transactions
 
     # validate merkle root hash
-    transaction_hash = []
-    for t in block_transactions:
-        transaction_hash.append(t.sha256_hash())
-    while len(transaction_hash) != 1:
-        for x in range(0, len(transaction_hash) - 1, 2):
-            hash1 = transaction_hash[x]
-            hash2 = transaction_hash[x + 1]
-            transaction_hash.remove(hash2)
-            transaction_hash[x] = sha256("{}{}".format(hash1, hash2).encode()).hexdigest()
+    transaction_hash = calculate_merkle_root_hash(block_transactions)
 
-    if merkle_root_hash != transaction_hash[0]:
+    if merkle_root_hash != transaction_hash:
         return None, -1
 
     # validate transactions are in order
     for t in range(1, len(block_transactions) - 1):
-        if int(block_transactions[t].inputs[0], 16) < int(block_transactions[t].inputs[0], 16):
+        if block_transactions[t] < block_transactions[t + 1]:
             return None, -1
-        elif block_transactions[t].inputs[1] < block_transactions[t].inputs[1]:
-            return None, -1
-        elif block_transactions[t].inputs[2] < block_transactions[t].inputs[2]:
-            return None, -1
+
+    # check for overlaps
+    for t1 in range(1, len(block_transactions)):
+        for t2 in range(1, len(block_transactions)):
+            if not t1 == t2:
+                if block_transactions[t1].overlap(block_transactions[t2]):
+                    return None, -1
 
     # append to database
     self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
@@ -603,6 +613,11 @@ def handle_block_message(message, blockchain):
     # raise flag if appropriate
     if blockchain.get_block_consensus_chain(blockchain.__len__())[3] == previous_block_hash:
         flags["received new block"] = True
+
+    # remove transactions from list if necessary
+    for t in transactions:
+        if not validate_transaction(t, blockchain):
+            transactions.remove(t)
 
     # return message
     return "{}{}".format(len(message), message), 2
@@ -657,46 +672,78 @@ Block Miner Function
 """
 
 
-def find_nonce(blockchain, difficulty, prev_id, public_key):
+def find_nonce(blockchain, difficulty, prev_hash, merkle_hash):
     """
-    searches for nonce for new block to add to the blockchain
-    :param blockchain: blockchain SQL connector
-    :type blockchain: Blockchain
-    :return: nonce
-    :rtype: int
+    finds nonce for new block
+    :param blockchain:
+    :type blockchain:
+    :param difficulty:
+    :type difficulty:
+    :param prev_hash:
+    :type prev_hash:
+    :param merkle_hash:
+    :type merkle_hash:
+    :return:
+    :rtype:
     """
-
-    global flags
-    global thread_queue
-
-    difficulty = 0
-    prev_id = 0
-    public_key = 0
-
-    prev_block_hash = blockchain[prev_id][4]
-    block_number = blockchain[prev_id][1] + 1
     nonce = 0
 
     maximum = 2 ** (256 - difficulty)
 
-    block_hash = sha256("{}{}{}".format(block_number, prev_block_hash, nonce).encode("utf-8")).hexdigest()
+    block_hash = sha256("{}{}{}".format(prev_hash, merkle_hash, hexify(nonce, 8)).encode()).hexdigest()
     int_hash = int(block_hash, 16)
 
     while int_hash > maximum and not flags["received_block_flag"]:
         nonce += 1
-        block_hash = sha256("{}{}{}".format(block_number, prev_block_hash, nonce).encode("utf-8")).hexdigest()
+        block_hash = sha256("{}{}{}".format(prev_hash, merkle_hash, hexify(nonce, 8)).encode()).hexdigest()
         int_hash = int(block_hash, 16)
 
-    if flags["received_block_flag"]:
-        thread_queue.put(-1)
+        if flags["received new block"]:
+            return
+
+    return nonce
+
+
+def mine_new_block(blockchain, public_key):
+    block_number = blockchain.__len__() + 1
+
+    if block_number <= 2016:
+        difficulty = get_config_data("default difficulty")
     else:
-        flags["created_block_flag"] = True
-        thread_queue.put(nonce)
+        ceiling = 2016 * math.floor((block_number - 1) / 2016)
+        floor = ceiling - 2016
+        delta_t = datetime_string_posix(blockchain.get_block_consensus_chain(ceiling)[2]) - datetime_string_posix(blockchain.get_block_consensus_chain(floor[2]))
+        difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
 
+    prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__())[3]
 
-def mine_new_block(blockchain):
-    # TODO: implement
-    pass
+    block_transactions = []
+    all_transactions = transactions.array
+    for t in all_transactions:
+        invalid_transaction = False
+        for t2 in block_transactions:
+            if t.overlap(t2):
+                invalid_transaction = True
+        if not invalid_transaction:
+            block_transactions.append(t)
+        if len(block_transactions) == 64:
+            break
+    block_transactions.sort(key=Transaction.sort_key, reverse=True)
+
+    source_transaction = Transaction(datetime.datetime.now().timestamp(), [], [(public_key, 10)])
+    block_transactions = [source_transaction] + block_transactions
+
+    merkle_root_hash = calculate_merkle_root_hash(block_transactions)
+
+    nonce = find_nonce(blockchain, difficulty, prev_hash, merkle_root_hash)
+
+    blockchain.append(block_number, datetime.datetime.now().timestamp(), prev_hash, difficulty, nonce, merkle_root_hash,
+                      transactions, calculate_hash(merkle_root_hash, prev_hash, nonce))
+    block = blockchain.get_block_consensus_chain(blockchain.__len__())
+
+    message = build_block_message(block)
+    thread_queue.put("{}{}".format(len(message), message), 2)
+    flags["created new block"] = True
 
 
 """
@@ -804,7 +851,7 @@ def main():
 
         if flags["created new block"]:
             mining_thread.join()
-            message = thread_queue.get()
+            message = thread_queue.get()[0]
 
             for sock in client_sockets + inputs:
                 if sock not in message_queues:
