@@ -82,6 +82,31 @@ class Transaction:
         for output in self.outputs:
             string_representation += "{}: {}Bl\n".format(output[0], output[1])
         return string_representation[:-1]
+      
+    def __gt__(self, other):
+        if int(self.inputs[0], 16) < int(other.inputs[0], 16):
+            return False
+        elif self.inputs[1] < other.inputs[1]:
+            return False
+        elif self.inputs[2] < other.inputs[2]:
+            return False
+        return True
+
+    def __lt__(self, other):
+        if int(self.inputs[0], 16) > int(other.inputs[0], 16):
+            return False
+        elif self.inputs[1] > other.inputs[1]:
+            return False
+        elif self.inputs[2] > other.inputs[2]:
+            return False
+        return True
+
+    def overlap(self, other):
+        for inp in self.inputs:
+            for other_inp in other.inputs:
+                if inp[0] == other_inp[0] and inp[1] == other_inp[1] and inp[2] == other_inp[2]:
+                    return True
+        return False
 
     def network_format(self):
         """
@@ -143,8 +168,7 @@ class Transaction:
         :return: sha256 hash of the transaction, as a hexadecimal string
         :rtype: str
         """
-        # TODO: sha256 of hex, not of utf-8 string
-        return sha256(self.network_format().encode('utf-8')).hexdigest()
+        return sha256(self.network_format().encode()).hexdigest()
 
     @staticmethod
     def from_network_format(hex_transaction):
