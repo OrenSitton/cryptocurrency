@@ -103,12 +103,7 @@ class Blockchain:
         results = self.cursor.fetchall()
 
         if results and not prev_hash:
-            maximum_depth = results[0]
-            for result in results:
-                if self.get_depth(result[4]) > self.get_depth(maximum_depth[4]):
-                    maximum_depth = result
-
-            return maximum_depth
+            return results
 
         elif results:
             for result in results:
@@ -128,7 +123,7 @@ class Blockchain:
         block = self.cursor.fetchall()
 
         if block:
-            return block[1]
+            return block[0][1]
         else:
             return 0
 
@@ -164,6 +159,9 @@ class Blockchain:
                                                              nonce, merkle_root_hash, transactions, self_hash))
         self.db.commit()
 
+    def delete(self, block_hash):
+        self.cursor.execute("DELETE FROM Blocks WHERE self_hash={}".format(block_hash))
+
     def export(self, directory):
         """
         exports sql database into a csv file
@@ -194,19 +192,6 @@ class Blockchain:
                 writer.writerow([gen + 1, self[gen][0], self[gen][1]])
 
         os.chdir(current_directory)
-
-    def get_depth(self, block_hash):
-        """
-        calculates the depth of the block with the given hash
-        :param block_hash: hash of block
-        :type block_hash: str
-        :return: depth of block
-        :rtype: int
-        :raises: TypeError: expected block_hash to be of type str
-        """
-        if not isinstance(block_hash, str):
-            raise TypeError("Blockchain.get_depth: expected block hash to be of type str")
-        # TODO: implement function
 
     def get_blocks(self, block_number):
         """
@@ -245,10 +230,10 @@ class Blockchain:
             raise TypeError("Blockchain.get_blocks: expected block number to be of type int")
 
         # TODO: implement function
+        # TODO: return block with POSIX time minimum
 
 
 def main():
-    print(Blockchain())
     pass
 
 
