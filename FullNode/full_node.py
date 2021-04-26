@@ -477,7 +477,6 @@ def handle_block_request_message(message, blockchain):
 
 
 def handle_block_message(message, blockchain):
-    # TODO: validate transactions are in order
     # validate minimum length
     if len(message) < 155:
         return None, -1
@@ -561,6 +560,8 @@ def handle_block_message(message, blockchain):
         if not validate_transaction(transaction, blockchain, prev_block_hash=previous_block_hash):
             return None, -1
 
+    block_transactions = [first_transaction] + block_transactions
+
     # validate merkle root hash
     transaction_hash = []
     for t in block_transactions:
@@ -574,6 +575,15 @@ def handle_block_message(message, blockchain):
 
     if merkle_root_hash != transaction_hash[0]:
         return None, -1
+
+    # validate transactions are in order
+    for t in range(1, len(block_transactions) - 1):
+        if int(block_transactions[t].inputs[0], 16) < int(block_transactions[t].inputs[0], 16):
+            return None, -1
+        elif block_transactions[t].inputs[1] < block_transactions[t].inputs[1]:
+            return None, -1
+        elif block_transactions[t].inputs[2] < block_transactions[t].inputs[2]:
+            return None, -1
 
     # append to database
     self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
