@@ -499,7 +499,8 @@ def handle_block_message(message, blockchain):
         return None, -1
 
     # validate time created
-    prev_block_posix_time = datetime_string_posix(blockchain.__getitem__(block_number - 1, prev_hash=previous_block_hash)[2])
+    prev_block_posix_time = datetime_string_posix(blockchain.__getitem__(block_number - 1, prev_hash=previous_block_hash)
+                                                  [0][2])
     if posix_time <= prev_block_posix_time:
         return None, -1
 
@@ -508,17 +509,17 @@ def handle_block_message(message, blockchain):
         if block_difficulty != get_config_data("default difficulty"):
             return None, -1
     else:
-        maximum_block = blockchain.__getitem__(block_number - 1, previous_block_hash)
+        maximum_block = blockchain.__getitem__(block_number - 1, previous_block_hash)[0]
         while int(maximum_block[1]) % 2016 != 0:
-            maximum_block = blockchain.__getitem__(int(maximum_block[1]) - 1, maximum_block[4])
-        minimum_block = blockchain.__getitem__(int(maximum_block[1]) - 1, maximum_block[4])
+            maximum_block = blockchain.__getitem__(int(maximum_block[1]) - 1, maximum_block[3])[0]
+        minimum_block = blockchain.__getitem__(int(maximum_block[1]) - 1, maximum_block[3])[0]
         while int(minimum_block[1]) % 2016 != 0:
-            minimum_block = blockchain.__getitem__(int(minimum_block[1]) - 1, minimum_block[4])
+            minimum_block = blockchain.__getitem__(int(minimum_block[1]) - 1, minimum_block[3])[0]
         delta_t = datetime_string_posix(maximum_block[2]) - datetime_string_posix(minimum_block[2])
         if block_difficulty != calculate_difficulty(delta_t):
             return None, -1
-    # validate nonce
 
+    # validate nonce
     maximum = 2 ** (256 - block_difficulty)
     b_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
     int_hash = int(b_hash, 16)
@@ -594,9 +595,9 @@ def handle_block_message(message, blockchain):
     if block_number == blockchain.__len__() and block_number >= 3:
         if blockchain.get_block_consensus_chain(block_number)[4] == previous_block_hash:
             prev_prev_hash = blockchain.__getitem__(block_number - 2, blockchain.__getitem__(block_number - 1,
-                                                                                             previous_block_hash)[4])[4]
+                                                                                             previous_block_hash)[0][3])[0][3]
             for block in blockchain.__getitem__(block_number - 2):
-                if block[4] != prev_prev_hash:
+                if block[3] != prev_prev_hash:
                     blockchain.delete(block[4])
 
     # raise flag if appropriate
