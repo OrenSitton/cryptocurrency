@@ -124,12 +124,17 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
 
     peer_addresses = []
 
-    try:
-        seed_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        seed_client.connect((dns_ip, dns_port))
+    for x in range(attempts):
+        try:
+            seed_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            seed_client.connect((dns_ip, dns_port))
 
-    except ConnectionRefusedError:
-        attempts = 0
+        except ConnectionRefusedError:
+            if x == attempts - 1:
+                logging.info("Seeding server did not accept connection")
+                return
+        else:
+            break
 
     for x in range(attempts):
         seed_client.send("00001a".encode())
@@ -348,7 +353,7 @@ def datetime_string_posix(datetime_string):
 
 
 def calculate_difficulty(delta_t, prev_difficulty):
-    ratio = round(delta_t/1209600)
+    ratio = round(delta_t / 1209600)
     difficulty_addition = math.log(ratio, 2)
     if difficulty_addition > 0:
         return prev_difficulty + math.floor(difficulty_addition)
@@ -358,7 +363,7 @@ def calculate_difficulty(delta_t, prev_difficulty):
 
 
 def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
-    value = "{}{}{}{}".format(prev_block_hash, merkle_root_hash, nonce)
+    value = "{}{}{}".format(prev_block_hash, merkle_root_hash, nonce)
     return sha256(value.encode()).hexdigest()
 
 
@@ -451,7 +456,7 @@ def handle_peer_message(message):
 
     addresses = []
 
-    for x in peer_count:
+    for x in range(peer_count):
         byte1 = int(message[:2], 16)
         byte2 = int(message[2:4], 16)
         byte3 = int(message[4:6], 16)
@@ -503,7 +508,6 @@ def handle_block_message(message, blockchain):
     nonce = int(message[81:89], 16)
     merkle_root_hash = message[89:153]
     transaction_count = message[153:155]
-    valid = True
 
     # check if block already received
     if blockchain.__getitem__(block_number, prev_hash=previous_block_hash):
@@ -514,8 +518,9 @@ def handle_block_message(message, blockchain):
         return None, -1
 
     # validate time created
-    prev_block_posix_time = datetime_string_posix(blockchain.__getitem__(block_number - 1, prev_hash=previous_block_hash)
-                                                  [0][2])
+    prev_block_posix_time = datetime_string_posix(
+        blockchain.__getitem__(block_number - 1, prev_hash=previous_block_hash)
+        [0][2])
     if posix_time <= prev_block_posix_time:
         return None, -1
 
@@ -531,7 +536,8 @@ def handle_block_message(message, blockchain):
         while int(minimum_block[1]) % 2016 != 0:
             minimum_block = blockchain.__getitem__(int(minimum_block[1]) - 1, minimum_block[3])[0]
         delta_t = datetime_string_posix(maximum_block[2]) - datetime_string_posix(minimum_block[2])
-        if block_difficulty != calculate_difficulty(delta_t):
+        if block_difficulty != calculate_difficulty(delta_t, blockchain.get_block_consensus_chain(
+                minimum_block[1] + 1)[4]):
             return None, -1
 
     # validate nonce
@@ -604,8 +610,8 @@ def handle_block_message(message, blockchain):
     # delete blocks if consensus long enough
     if block_number == blockchain.__len__() and block_number >= 3:
         if blockchain.get_block_consensus_chain(block_number)[4] == previous_block_hash:
-            prev_prev_hash = blockchain.__getitem__(block_number - 2, blockchain.__getitem__(block_number - 1,
-                                                                                             previous_block_hash)[0][3])[0][3]
+            prev_prev_hash = blockchain.__getitem__(
+                block_number - 2, blockchain.__getitem__(block_number - 1, previous_block_hash)[0][3])[0][3]
             for block in blockchain.__getitem__(block_number - 2):
                 if block[3] != prev_prev_hash:
                     blockchain.delete(block[4])
@@ -643,7 +649,7 @@ def handle_transaction_message(message, blockchain):
 
 
 def handle_error_message(message):
-    logging.info("Message is an error message")
+    logging.info("Message is an error message {{{}}}".format(message))
     return None, -1
 
 
@@ -672,11 +678,9 @@ Block Miner Function
 """
 
 
-def find_nonce(blockchain, difficulty, prev_hash, merkle_hash):
+def find_nonce(difficulty, prev_hash, merkle_hash):
     """
     finds nonce for new block
-    :param blockchain:
-    :type blockchain:
     :param difficulty:
     :type difficulty:
     :param prev_hash:
@@ -712,7 +716,8 @@ def mine_new_block(blockchain, public_key):
     else:
         ceiling = 2016 * math.floor((block_number - 1) / 2016)
         floor = ceiling - 2016
-        delta_t = datetime_string_posix(blockchain.get_block_consensus_chain(ceiling)[2]) - datetime_string_posix(blockchain.get_block_consensus_chain(floor[2]))
+        delta_t = datetime_string_posix(blockchain.get_block_consensus_chain(ceiling)[2]) - datetime_string_posix(
+            blockchain.get_block_consensus_chain(floor)[2])
         difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
 
     prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__())[3]
@@ -735,14 +740,14 @@ def mine_new_block(blockchain, public_key):
 
     merkle_root_hash = calculate_merkle_root_hash(block_transactions)
 
-    nonce = find_nonce(blockchain, difficulty, prev_hash, merkle_root_hash)
+    nonce = find_nonce(difficulty, prev_hash, merkle_root_hash)
 
     blockchain.append(block_number, datetime.datetime.now().timestamp(), prev_hash, difficulty, nonce, merkle_root_hash,
                       transactions, calculate_hash(merkle_root_hash, prev_hash, nonce))
     block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
     message = build_block_message(block)
-    thread_queue.put("{}{}".format(len(message), message), 2)
+    thread_queue.put(("{}{}".format(len(message), message), 2))
     flags["created new block"] = True
 
 
