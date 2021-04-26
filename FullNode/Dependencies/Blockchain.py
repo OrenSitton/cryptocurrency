@@ -37,14 +37,17 @@ class Blockchain:
             calculates the length of the Blockchain's consensus chain
         append(block_number, timestamp, size, prev_hash, difficulty, nonce, merkle_root_hash, transactions, self_hash)
             appends new block to the blockchain database
-        export(directory)
-            exports sql database into a csv file
-        get_depth(block_hash)
-            calculates the depth of the block with the given hash
-        get_blocks(block_number)
-            get method for blocks from all chains
+        delete
+            deletes block hash from sql database
+        get_block_by_hash(block_hash)
+            get method for blocks with certain hash
         get_block_consensus_chain(block_number)
             get method for blocks on the consensus (longest) chain
+
+        Static Methods
+        --------------
+        datetime_string_posix(datetime_string)
+            converts sql dateteime string to posix time
         """
 
     def __init__(self, host="localhost", user="root", password="root"):
@@ -76,12 +79,12 @@ class Blockchain:
 
         # create Block table in Blockchain database if it doesn't exist yet
         self.cursor.execute("CREATE TABLE if not EXISTS Blocks (id int UNSIGNED PRIMARY KEY AUTO_INCREMENT, "
-                            "block_number INT UNSIGNED, time_created TIMESTAMP, size MEDIUMINT, "
+                            "block_number INT UNSIGNED, time_created TIMESTAMP,"
                             "hash VARCHAR(64) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
                             "merkle_root_hash VARCHAR(64), transactions LONGBLOB, self_hash VARCHAR(64))")
 
         if len(self) == 0:
-            self.append(0, 1, 0, "", 0, 0, "", "", "")
+            self.append(0, 1, "", 0, 0, "", "", "")
 
     def __getitem__(self, block_number, prev_hash=""):
         """
@@ -107,8 +110,8 @@ class Blockchain:
 
         elif results:
             for result in results:
-                if result[4] == prev_hash:
-                    return result
+                if result[3] == prev_hash:
+                    return [result]
 
         return None
 
@@ -127,7 +130,7 @@ class Blockchain:
         else:
             return 0
 
-    def append(self, block_number, timestamp, size, prev_hash, difficulty, nonce, merkle_root_hash, transactions,
+    def append(self, block_number, timestamp, prev_hash, difficulty, nonce, merkle_root_hash, transactions,
                self_hash):
         """
         appends new block to the blockchain database
@@ -135,8 +138,6 @@ class Blockchain:
         :type block_number: int
         :param timestamp: time block was created (posix time)
         :type timestamp: int
-        :param size: size of the block in bits
-        :type size: int
         :param prev_hash: hash of the previous block
         :type prev_hash: str
         :param difficulty: difficulty of block (length of hash zero prefix)
@@ -150,70 +151,43 @@ class Blockchain:
         :param self_hash: hash of the block
         :type self_hash: str
         """
+        t = ""
+        for transaction in transactions:
+            t += transaction.network_format() + ","
+        transactions = t[:-1]
         datetime_object = datetime.fromtimestamp(timestamp)
         timestamp = "{}-{}-{} {}:{}:{}".format(datetime_object.year, datetime_object.month, datetime_object.day,
                                                datetime_object.hour, datetime_object.minute, datetime_object.second)
-        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, size, hash, difficulty, nonce, "
-                            "merkle_root_hash, transactions, self_hash) VALUES ({}, \'{}\', {}, \"{}\", {}, {}, "
-                            "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, size, prev_hash, difficulty,
+        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, hash, difficulty, nonce, "
+                            "merkle_root_hash, transactions, self_hash) VALUES ({}, \'{}\',\"{}\", {}, {}, "
+                            "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, prev_hash, difficulty,
                                                              nonce, merkle_root_hash, transactions, self_hash))
         self.db.commit()
 
     def delete(self, block_hash):
+        """
+        deletes block from sql database
+        :param block_hash: hash of block to delete
+        :type block_hash: str
+        """
         self.cursor.execute("DELETE FROM Blocks WHERE self_hash={}".format(block_hash))
 
-    def export(self, directory):
+    def get_block_by_hash(self, block_hash):
         """
-        exports sql database into a csv file
-        :param directory: directory to save database into
-        :type directory: str
-        """
-        # TODO: add error handling
-        current_directory = os.getcwd()
-        os.chdir(directory)
-
-        filename = "Blockchain"
-
-        if os.path.isfile(filename + ".csv"):
-
-            filename += "(1)"
-            addition = 1
-
-            while os.path.isfile(filename + ".csv"):
-                addition += 1
-                filename = filename[:11] + str(addition) + ")"
-
-        filename += ".csv"
-        with open(filename, 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(["id", "data", "prev_hash"])
-
-            for gen in range(self.__len__()):
-                writer.writerow([gen + 1, self[gen][0], self[gen][1]])
-
-        os.chdir(current_directory)
-
-    def get_blocks(self, block_number):
-        """
-        get method for blocks from all chains
-        :param block_number: requested block number
-        :type block_number: int
-        :return: all blocks with requested block number
+        get method for block with certain hash
+        :param block_hash: block hash
+        :type block_hash: str
+        :return: block with hash block_hash
         :rtype: tuple
-        :raises: IndexError: block number is not within range
-        :raises: TypeError: expected block number to be of type int
         """
-        if block_number < 1 or block_number > self.__len__():
-            raise IndexError("Blockchain.get_blocks: block number not within range")
-        elif not isinstance(block_number, int):
-            raise TypeError("Blockchain.get_blocks: expected block number to be of type int")
+        self.cursor.execute("SELECT * FROM Blocks WHERE self_hash={}".format(block_hash))
+        result = self.cursor.fetchall()
 
-        self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
+        if result:
+            return result[0]
+        else:
+            return []
 
-        results = self.cursor.fetchall()
-
-        return results
-    
     def get_block_consensus_chain(self, block_number):
         """
         get method for blocks on the consensus (longest) chain
@@ -229,11 +203,46 @@ class Blockchain:
         elif not isinstance(block_number, int):
             raise TypeError("Blockchain.get_blocks: expected block number to be of type int")
 
-        # TODO: implement function
-        # TODO: return block with POSIX time minimum
+        if block_number < self.__len__() - 1:
+            return self.__getitem__(block_number)
+
+        self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
+
+        results = self.cursor.fetchall()
+
+        if len(results) == 1:
+            return results[0]
+        else:
+            minimum_posix = results[0]
+            for result in results:
+                if Blockchain.datetime_string_posix(result[2]) < Blockchain.datetime_string_posix(minimum_posix[2]):
+                    minimum_posix = result
+            if block_number == self.__len__():
+                return minimum_posix
+            else:
+                return self.get_block_by_hash(minimum_posix[3])
+
+    @staticmethod
+    def datetime_string_posix(datetime_string):
+        """
+        converts sql dateteime string to posix time
+        :param datetime_string: sql datetime string
+        :type datetime_string: str
+        :return: posix time
+        :rtype: int
+        """
+        year = int(datetime_string[:4])
+        month = int(datetime_string[5:7])
+        day = int(datetime_string[8:10])
+
+        hour = int(datetime_string[11:13])
+        minute = int(datetime_string[14:16])
+        second = int(datetime_string[17:19])
+        return datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timestamp()
 
 
 def main():
+    Blockchain()
     pass
 
 
