@@ -15,10 +15,10 @@ from hashlib import sha256
 from time import sleep
 import select
 import pickle
-from FullNode.Dependencies import Blockchain
-from FullNode.Dependencies import SyncedArray
-from FullNode.Dependencies import Transaction
-from FullNode.Dependencies import Flags
+from Dependencies import Blockchain
+from Dependencies import SyncedArray
+from Dependencies import Transaction
+from Dependencies import Flags
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
@@ -330,9 +330,12 @@ def calculate_difficulty(delta_t, prev_difficulty):
     ratio = round(delta_t / 1209600)
     difficulty_addition = math.log(ratio, 2)
     if difficulty_addition > 0:
+        logging.error(prev_difficulty + math.floor(difficulty_addition))
         return prev_difficulty + math.floor(difficulty_addition)
     elif difficulty_addition < 0:
+        logging.error(prev_difficulty + math.ceil(difficulty_addition))
         return prev_difficulty + math.ceil(difficulty_addition)
+    logging.error(prev_difficulty)
     return prev_difficulty
 
 
