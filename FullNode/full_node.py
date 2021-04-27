@@ -688,7 +688,8 @@ def mine_new_block(blockchain):
     else:
         ceiling = 2016 * math.floor((block_number - 1) / 2016)
         floor = ceiling - 2016
-        delta_t = blockchain.get_block_consensus_chain(ceiling[2]) - blockchain.get_block_consensus_chain(floor[2])
+        # TODO: check if delta_t works
+        delta_t = blockchain.get_block_consensus_chain(ceiling) - blockchain.get_block_consensus_chain(floor)
         difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
 
     prev_hash = ""
@@ -867,5 +868,5 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format="%(threadName)s [%(asctime)s] %(message)s")
+    logging.basicConfig(level=logging.ERROR, format="%(threadName)s [%(asctime)s] %(message)s")
     main()

@@ -33,6 +33,37 @@ def initialize_server(ip, port):
     return server
 
 
+def hexify(number, length):
+    """
+    calculates hexadecimal value of the number, with prefix zeroes to match length
+    :param number: number to calculate hex value for, in base 10
+    :type number: int
+    :param length: requested length of hexadecimal value
+    :type length: int
+    :return: hexadecimal value of the number, with prefix zeroes
+    :rtype: str
+    :raise Exception: ValueError (message size is larger than length)
+    """
+    if not isinstance(number, int):
+        raise TypeError("Transaction.hexify(number, length): expected number to be of type int")
+    if not isinstance(length, int):
+        raise TypeError("Transaction.hexify(number, length): expected length to be of type int")
+    if number < 0:
+        raise ValueError("Transaction.hexify(number, length): expected non-negative value for number, received {} "
+                         "instead".format(number))
+    if length < 0:
+        raise ValueError("Transaction.hexify(number, length): expected non-negative value for length, received {} "
+                         "instead".format(length))
+
+    hex_base = hex(number)[2:]
+
+    if len(hex_base) <= length:
+        hex_base = (length - len(hex_base)) * "0" + hex_base
+        return hex_base
+    else:
+        raise ValueError("Transaction.hexify(number, length): message size is larger than length")
+
+
 def handle_message(request, ip_addresses, destination):
     """
     handles incoming messages from clients. Analyzes client request and creates appropriate response.
@@ -45,39 +76,48 @@ def handle_message(request, ip_addresses, destination):
     :return: reply to send to client
     :rtype: str
     """
+    request_type = request[:1]
 
-    if request == "GetAddresses\r\n":
+    if request_type == "a":
         if destination in ip_addresses and ip_addresses[len(ip_addresses) - 1] != destination:
             ip_addresses[ip_addresses.index(destination)] = ip_addresses[len(ip_addresses) - 1]
             # replace requester's address with a different address
 
-        reply = "Addresses\r\n"
+        peer_count = 0
+        reply = ""
 
-        for x in range(len(ip_addresses) - 1):
-            if ip_addresses[x] != "":
-                reply += ip_addresses[x] + "\r\n"
+        for x in ip_addresses[:-1]:
+            if x != "":
+                peer_count += 1
+                if x == "localhost":
+                    reply += "{}{}{}{}".format(hexify(127, 2), hexify(0, 2), hexify(0, 2), hexify(1, 2))
+                else:
+                    x = x.split(".")
+                    reply += "{}{}{}{}".format(
+                        hexify(int(x[0]), 2), hexify(int(x[1]), 2), hexify(int(x[2]), 2), hexify(int(x[3]), 2))
+
+        reply = "b{}{}".format(hexify(peer_count, 2), reply)
 
     else:
-        reply = "Error\r\nunrecognized request\r\n"
+        reply = "f{}".format("unrecognized request".encode("utf-8").hex())
 
-    length = len(reply.encode('utf-8'))
-    prefix = "0" * (4-len(str(length)))
+    length = hexify(len(reply), 5)
 
-    reply = "{}{}{}".format(prefix, str(length), reply)
+    reply = "{}{}".format(length, reply)
 
     return reply
 
 
 def main():
     # open config file
-    ip = "localhost"
-    port = 8333
+    ip = "0.0.0.0"
+    port = 8666
     addresses_amount = 3
     ip_addresses = []
-    count = 0
+    count = 1
     for x in range(addresses_amount + 1):
         ip_addresses.append("")
-
+    ip_addresses[0] = "192.168.0.16"
     # initiate server socket
     server_socket = initialize_server(ip, port)
 
@@ -106,11 +146,11 @@ def main():
 
             else:
                 try:
-                    data = sock.recv(4).decode()
+                    data = sock.recv(5).decode()
                     if data:
                         logging.info("Received message from client at ({}, {})"
                                      .format(sock.getpeername()[0], sock.getpeername()[1]))
-                        data = sock.recv(int(data)).decode()
+                        data = sock.recv(int(data, 16)).decode()
                         if sock in message_queues:
                             message_queues[sock] = message_queues[sock] + [data]
                         else:
