@@ -345,8 +345,9 @@ def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
 
 
 def calculate_merkle_root_hash(block_transactions):
-    for x in block_transactions:
-        x = x.sha256_hash()
+    block_transactions = block_transactions.copy()
+    for x in range(len(block_transactions)):
+        block_transactions[x] = block_transactions[x].sha256_hash()
     if not len(block_transactions):
         return "0" * 64
     while len(block_transactions) != 1:
@@ -354,7 +355,7 @@ def calculate_merkle_root_hash(block_transactions):
         for x in range(0, len(block_transactions) - 1, 2):
             hash1 = block_transactions[x]
             hash2 = block_transactions[x + 1]
-            tmp_transactions.append(sha256("{}{}".format(hash1, hash2).encode()))
+            tmp_transactions.append(sha256("{}{}".format(hash1, hash2).encode()).hexdigest())
         block_transactions = tmp_transactions
     return block_transactions[0]
 
@@ -716,7 +717,7 @@ def mine_new_block(blockchain):
     for t in block_transactions:
         final_block_transactions.append(t)
 
-    merkle_root_hash = calculate_merkle_root_hash(block_transactions)
+    merkle_root_hash = calculate_merkle_root_hash(final_block_transactions)
 
     nonce = find_nonce(difficulty, prev_hash, merkle_root_hash)
 
