@@ -748,7 +748,7 @@ def main():
     flags["exception"] = False
     flags["finished seeding"] = False
 
-    ip = "192.168.0.16"
+    ip = get_config_data("ip address")
     port = get_config_data("port")
     seed_ip = get_config_data("seed address")
     seed_port = get_config_data("seed port")

@@ -82,7 +82,7 @@ class Transaction:
         for output in self.outputs:
             string_representation += "{}: {}Bl\n".format(output[0], output[1])
         return string_representation[:-1]
-      
+
     def __gt__(self, other):
         if int(self.inputs[0], 16) < int(other.inputs[0], 16):
             return False
@@ -245,6 +245,11 @@ class Transaction:
             return hex_base
         else:
             raise ValueError("Transaction.hexify(number, length): message size is larger than length")
+
+    @staticmethod
+    def sort_key(transaction):
+        key = "{}{}{}".format(str(int(transaction.inputs[0][0])), transaction.inputs[0][1], transaction.inputs[0][2])
+        return int(key)
 
 
 def main():
