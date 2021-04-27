@@ -8,6 +8,8 @@ import csv
 import os
 from mysql import connector
 from datetime import datetime
+from Dependencies import Transaction
+import logging
 
 
 class Blockchain:
@@ -79,12 +81,12 @@ class Blockchain:
 
         # create Block table in Blockchain database if it doesn't exist yet
         self.cursor.execute("CREATE TABLE if not EXISTS Blocks (id int UNSIGNED PRIMARY KEY AUTO_INCREMENT, "
-                            "block_number INT UNSIGNED, time_created TIMESTAMP,"
-                            "hash VARCHAR(64) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
+                            "block_number INT UNSIGNED, time_created BIT(32),"
+                            "prev_hash VARCHAR(64) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
                             "merkle_root_hash VARCHAR(64), transactions LONGBLOB, self_hash VARCHAR(64))")
 
-        if len(self) == 0:
-            self.append(0, 1, "", 0, 0, "", "", "")
+        if self.__sizeof__() == 0:
+            self.append(0, 0, "", 0, 0, "", "", "")
 
     def __getitem__(self, block_number, prev_hash=""):
         """
@@ -130,6 +132,11 @@ class Blockchain:
         else:
             return 0
 
+    def __sizeof__(self):
+        self.cursor.execute("SELECT * FROM Blocks")
+
+        return len(self.cursor.fetchall())
+
     def append(self, block_number, timestamp, prev_hash, difficulty, nonce, merkle_root_hash, transactions,
                self_hash):
         """
@@ -147,21 +154,20 @@ class Blockchain:
         :param merkle_root_hash: root of transactions merkle tree
         :type merkle_root_hash: str
         :param transactions: list of transactions to be included in the block
-        :type transactions: str
+        :type transactions: list
         :param self_hash: hash of the block
         :type self_hash: str
         """
+        for x in range(len(transactions)):
+            transactions[x] = transactions[x].network_format()
         t = ""
-        for transaction in transactions:
-            t += transaction.network_format() + ","
-        transactions = t[:-1]
-        datetime_object = datetime.fromtimestamp(timestamp)
-        timestamp = "{}-{}-{} {}:{}:{}".format(datetime_object.year, datetime_object.month, datetime_object.day,
-                                               datetime_object.hour, datetime_object.minute, datetime_object.second)
-        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, hash, difficulty, nonce, "
-                            "merkle_root_hash, transactions, self_hash) VALUES ({}, \'{}\',\"{}\", {}, {}, "
+        for x in transactions:
+            t += "{},".format(x)
+        t = t[:-1]
+        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, prev_hash, difficulty, nonce, "
+                            "merkle_root_hash, transactions, self_hash) VALUES ({}, {}, \"{}\", {}, {}, "
                             "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, prev_hash, difficulty,
-                                                             nonce, merkle_root_hash, transactions, self_hash))
+                                                             nonce, merkle_root_hash, t, self_hash))
         self.db.commit()
 
     def delete(self, block_hash):
@@ -204,7 +210,7 @@ class Blockchain:
             raise TypeError("Blockchain.get_blocks: expected block number to be of type int")
 
         if block_number < self.__len__() - 1:
-            return self.__getitem__(block_number)
+            return self.__getitem__(block_number)[0]
 
         self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
 
@@ -215,34 +221,15 @@ class Blockchain:
         else:
             minimum_posix = results[0]
             for result in results:
-                if Blockchain.datetime_string_posix(result[2]) < Blockchain.datetime_string_posix(minimum_posix[2]):
+                if result[2] < minimum_posix[2]:
                     minimum_posix = result
             if block_number == self.__len__():
                 return minimum_posix
             else:
                 return self.get_block_by_hash(minimum_posix[3])
 
-    @staticmethod
-    def datetime_string_posix(datetime_string):
-        """
-        converts sql dateteime string to posix time
-        :param datetime_string: sql datetime string
-        :type datetime_string: str
-        :return: posix time
-        :rtype: int
-        """
-        year = int(datetime_string[:4])
-        month = int(datetime_string[5:7])
-        day = int(datetime_string[8:10])
-
-        hour = int(datetime_string[11:13])
-        minute = int(datetime_string[14:16])
-        second = int(datetime_string[17:19])
-        return datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timestamp()
-
 
 def main():
-    Blockchain()
     pass
 
 
