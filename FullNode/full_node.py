@@ -150,7 +150,6 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
                 ip_address = "{}.{}.{}.{}".format(
                     int(data[:2], 16), int(data[2:4], 16), int(data[4:6], 16), int(data[6:], 16)
                 )
-                print(ip_address)
                 peer_addresses.append(ip_address)
                 data = data[8:]
             break
@@ -161,10 +160,9 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
 
     logging.info("Seeding yielded {} addresses".format(len(peer_addresses)))
 
-    # add additional peers from config file
-    # run in the background
-
     initiate_clients(peer_addresses, peer_port)
+
+    flags["finished seeding"] = True
 
 
 """
@@ -213,55 +211,43 @@ def validate_transaction(transaction, blockchain, prev_block_hash=""):
     # validate inputs are in order
     for x in range(1, len(transaction.inputs)):
         if transaction.inputs[x][0] > transaction.inputs[x - 1][0]:
-            return False
+            return False, "inputs order incorrect"
         elif transaction.inputs[x][0] == transaction.inputs[x - 1][0]:
             if transaction.inputs[x][1] > transaction.inputs[x - 1][1]:
-                return False
+                return False, "inputs order incorrect"
 
     # validate outputs are in order
     for x in range(1, len(transaction.outputs)):
         if transaction.outputs[x][1] > transaction.outputs[x - 1][1]:
-            return False
+            return False, "outputs order incorrect"
 
-    # validate that keys don't appear twice
-    input_lst = transaction.inputs.copy()
-    for inp1 in transaction.inputs:
-        input_lst.remove(inp1)
-        for inp2 in input_lst:
-            if inp1[0] == inp2[0]:
-                return False
-                # key appears twice
+    # validate that output keys don't appear twice
     output_lst = transaction.outputs.copy()
     for output1 in transaction.outputs:
         output_lst.remove(output1)
         for output2 in transaction.outputs:
             if output1[0] == output2[0]:
-                return False
-                # output key appears twice
-    if not prev_block_hash:
+                return False, "output key appears twice"
+
+    if not prev_block_hash:  # use blocks from consensus chain
+
         # validate sources, amounts
         input_coin_amounts = 0
         output_coin_amounts = 0
         for inp in transaction.inputs:
             block = blockchain.get_block_consensus_chain(inp[1])
-            input_transaction = Transaction.from_network_format(block[7].split(",")[inp[2] - 1])
-
+            input_transaction = Transaction.from_network_format(block[7].decode().split(",")[inp[2] - 1])
             appears_in_source = False
-
             for src_out in input_transaction.outputs:
                 if src_out[0] == inp[0]:
                     appears_in_source = True
                     input_coin_amounts += src_out[1]
             if not appears_in_source:
-                return False
-                # input is not valid (no coin in source for requested key)
-
+                return False, "input source does not contain output for requested public key"
         for output in transaction.outputs:
             output_coin_amounts += output[1]
-
         if not output_coin_amounts - input_coin_amounts:
-            return False
-            # input & output amounts are not equal
+            return False, "input and output amounts do not match"
 
         # validate signatures
         for inp in transaction.inputs:
@@ -271,10 +257,17 @@ def validate_transaction(transaction, blockchain, prev_block_hash=""):
             hasher = SHA256.new(transaction.signing_format().encode("utf-8"))
             verifier = PKCS1_v1_5.new(key)
             if not verifier.verify(hasher, inp[3]):
-                return False
-                # signature mismatch
+                return False, "signature is not valid"
+        for inp in transaction.inputs:
+            for x in range(inp[1] + 1, blockchain.__len__() + 1):
+                for t in blockchain.get_block_consensus_chain(x)[7].decode().split(","):
+                    t = Transaction.from_network_format(t).inputs
+                    for i in t:
+                        if i[1] == inp[1] and i[2] == inp[2]:
+                            return False, "double spend"
 
-    elif prev_block_hash:
+    elif prev_block_hash:  # use blocks from branch containing previous block hash
+
         # validate sources, amounts
         input_coin_amounts = 0
         output_coin_amounts = 0
@@ -283,25 +276,18 @@ def validate_transaction(transaction, blockchain, prev_block_hash=""):
                 block = blockchain.get_block_consensus_chain(inp[1])
             else:
                 block = blockchain.get_block_by_hash(prev_block_hash)
-
-            input_transaction = Transaction.from_network_format(block[7].split(",")[inp[2] - 1])
-
+            input_transaction = Transaction.from_network_format(block[7].decode().split(",")[inp[2] - 1])
             appears_in_source = False
-
             for src_out in input_transaction.outputs:
                 if src_out[0] == inp[0]:
                     appears_in_source = True
                     input_coin_amounts += src_out[1]
             if not appears_in_source:
-                return False
-                # input is not valid (no coin in source for requested key)
-
+                return False, "input source does not contain output for requested public key"
         for output in transaction.outputs:
             output_coin_amounts += output[1]
-
         if not output_coin_amounts - input_coin_amounts:
-            return False
-            # input & output amounts are not equal
+            return False, "input and output amounts do not match"
 
         # validate signatures
         for inp in transaction.inputs:
@@ -311,45 +297,33 @@ def validate_transaction(transaction, blockchain, prev_block_hash=""):
             hasher = SHA256.new(transaction.signing_format().encode("utf-8"))
             verifier = PKCS1_v1_5.new(key)
             if not verifier.verify(hasher, inp[3]):
-                return False
-                # signature mismatch
+                return False, "signature is not valid"
 
         for inp in transaction.inputs:
             spent = False
             for x in range(inp[1], blockchain.__len__() - 1):
-                for t in blockchain.get_block_consensus_chain(x)[7].split(","):
+                for t in blockchain.get_block_consensus_chain(x)[7].decode().split(","):
                     t = Transaction.from_network_format(t).inputs
                     for i in t:
                         if i[1] == inp[1] and i[2] == inp[2]:
                             spent = True
             if not prev_block_hash:
                 for x in range(blockchain.__len__() - 1, blockchain.__len__()):
-                    for t in blockchain.get_block_consensus_chain(x)[7].split(","):
+                    for t in blockchain.get_block_consensus_chain(x)[7].decode().split(","):
                         t = Transaction.from_network_format(t).inputs
                         for i in t:
                             if i[1] == inp[1] and i[2] == inp[2]:
                                 spent = True
             else:
                 for x in range(blockchain.__len__() - 1, blockchain.get_block_by_hash(prev_block_hash)[1]):
-                    for t in blockchain.get_block_consensus_chain(x)[7].split(","):
+                    for t in blockchain.get_block_consensus_chain(x)[7].decode().split(","):
                         t = Transaction.from_network_format(t).inputs
                         for i in t:
                             if i[1] == inp[1] and i[2] == inp[2]:
                                 spent = True
             if spent:
-                return False
-    return True
-
-
-def datetime_string_posix(datetime_string):
-    year = int(datetime_string[:4])
-    month = int(datetime_string[5:7])
-    day = int(datetime_string[8:10])
-
-    hour = int(datetime_string[11:13])
-    minute = int(datetime_string[14:16])
-    second = int(datetime_string[17:19])
-    return datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timestamp()
+                return False, "double spend"
+    return True, ""
 
 
 def calculate_difficulty(delta_t, prev_difficulty):
@@ -368,10 +342,10 @@ def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
 
 
 def calculate_merkle_root_hash(block_transactions):
-    for x in range(len(block_transactions)):
-        block_transactions[x] = block_transactions[x].sha256_hash()
+    for x in block_transactions:
+        x = x.sha256_hash()
     if not len(block_transactions):
-        return "0" * 256
+        return "0" * 64
     while len(block_transactions) != 1:
         tmp_transactions = []
         for x in range(0, len(block_transactions) - 1, 2):
@@ -391,26 +365,19 @@ Message Builder Functions
 def build_block_message(block):
     block_number = hexify(block[1], 6)
 
-    time = block[2]
-    year = time[:4]
-    month = time[5:7]
-    day = time[8:10]
-    hour = time[11:13]
-    minute = time[14:16]
-    second = time[17:19]
-    time_stamp = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timestamp()
+    time_stamp = block[2]
 
     prev_hash = block[3]
     difficulty = hexify(block[4], 2)
     nonce = hexify(block[5], 8)
     merkle_root_hash = block[6]
-    block_transactions = block[7].split(",")
+    block_transactions = block[7].decode().split(",")
 
     message = "d{}{}{}{}{}{}{}".format(block_number, time_stamp, difficulty, nonce, prev_hash, merkle_root_hash,
                                        hexify(len(block_transactions), 2))
 
     for transaction in block_transactions:
-        message += hexify(len(transaction), 2) + transaction
+        message += hexify(len(transaction), 5) + transaction
 
     return message
 
@@ -476,24 +443,24 @@ def handle_block_request_message(message, blockchain):
     else:
         block_number = int(message[1:7], 16)
         previous_block_hash = message[7:]
-
+        block = ""
         if block_number == 0 and previous_block_hash.replace("0", ""):
             # message in incorrect format
             logging.info("Message is an invalid block request")
             return None, -1
         elif block_number == 0:
-            block_number = blockchain.__len__()
-
-        # return requested block if have, else return nothing
-        block = blockchain.get_block_consensus_chain(block_number, prev_hash=previous_block_hash)
+            block = blockchain.get_block_consensus_chain(blockchain.__len__())
+        else:
+            # return requested block if have, else return nothing
+            block = blockchain.get_block_consensus_chain(block_number, prev_hash=previous_block_hash)
 
         if block:
             reply = build_block_message(block)
             logging.info("Message is a block request")
             return "{}{}".format(hexify(len(reply), 5), reply), 1
-
-        logging.info("Message is an invalid block request")
-        return None, -1
+        else:
+            logging.info("Message is an invalid block request")
+            return None, -1
 
 
 def handle_block_message(message, blockchain):
@@ -513,14 +480,17 @@ def handle_block_message(message, blockchain):
     if blockchain.__getitem__(block_number, prev_hash=previous_block_hash):
         return None, -1
 
-    # check if block number relevant
-    if block_number < blockchain.__len__() - 1:
+    # check if previous block exists
+    previous_block = blockchain.get_block_by_hash(previous_block_hash)
+    if not previous_block_hash:
         return None, -1
 
+    # check if block number relevant
+    if block_number < blockchain.__len__() - 1:
+        return None, -1.
+
     # validate time created
-    prev_block_posix_time = datetime_string_posix(
-        blockchain.__getitem__(block_number - 1, prev_hash=previous_block_hash)
-        [0][2])
+    prev_block_posix_time = previous_block[2]
     if posix_time <= prev_block_posix_time:
         return None, -1
 
@@ -535,7 +505,7 @@ def handle_block_message(message, blockchain):
         minimum_block = blockchain.__getitem__(int(maximum_block[1]) - 1, maximum_block[3])[0]
         while int(minimum_block[1]) % 2016 != 0:
             minimum_block = blockchain.__getitem__(int(minimum_block[1]) - 1, minimum_block[3])[0]
-        delta_t = datetime_string_posix(maximum_block[2]) - datetime_string_posix(minimum_block[2])
+        delta_t = maximum_block[2] - minimum_block[2]
         if block_difficulty != calculate_difficulty(delta_t, blockchain.get_block_consensus_chain(
                 minimum_block[1] + 1)[4]):
             return None, -1
@@ -608,13 +578,11 @@ def handle_block_message(message, blockchain):
                       block_transactions, self_hash)
 
     # delete blocks if consensus long enough
-    if block_number == blockchain.__len__() and block_number >= 3:
-        if blockchain.get_block_consensus_chain(block_number)[4] == previous_block_hash:
-            prev_prev_hash = blockchain.__getitem__(
-                block_number - 2, blockchain.__getitem__(block_number - 1, previous_block_hash)[0][3])[0][3]
-            for block in blockchain.__getitem__(block_number - 2):
-                if block[3] != prev_prev_hash:
-                    blockchain.delete(block[4])
+    if blockchain.get_block_consensus_chain(blockchain.__len__())[8] == self_hash:
+        # block is in consensus
+        for block in blockchain.__getitem__(block_number - 2):
+            if block[8] != blockchain.get_block_consensus_chain(block_number - 2)[8]:
+                blockchain.delete(block[8])
 
     # raise flag if appropriate
     if blockchain.get_block_consensus_chain(blockchain.__len__())[3] == previous_block_hash:
@@ -633,23 +601,24 @@ def handle_transaction_message(message, blockchain):
     try:
         transaction = Transaction.from_network_format(message)
     except ValueError:
-        logging.info("Message is an invalid transaction message")
+        logging.info("Message is an invalid transaction message [message format invalid]")
         return None, -1
     else:
         if transaction in transactions:
             logging.info("Message is a previously received transaction message")
             return None, -1
-        if validate_transaction(transaction, blockchain):
+        msg_validity = validate_transaction(transaction, blockchain)
+        if msg_validity[0]:
             transactions.append(transaction)
             logging.info("Message is a transaction message")
             return "{}{}".format(len(message), message), 2
         else:
-            logging.info("Message is an invalid transaction message")
+            logging.info("Message is an invalid transaction message [{}]".format(msg_validity[1]))
             return None, -1
 
 
 def handle_error_message(message):
-    logging.info("Message is an error message {{{}}}".format(message))
+    logging.info("Message is an error message [{}]".format(message))
     return None, -1
 
 
@@ -669,7 +638,7 @@ def handle_message(message, blockchain):
         reply = "{}{}".format(hexify(len(reply), 5), reply)
         return reply, 1
     else:
-        return message_handling_functions[message_type]
+        return message_handling_functions[message_type]()
 
 
 """
@@ -692,23 +661,22 @@ def find_nonce(difficulty, prev_hash, merkle_hash):
     """
     nonce = 0
 
-    maximum = 2 ** (256 - difficulty)
+    block_hash = calculate_hash(merkle_hash, prev_hash, nonce)
+    bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
 
-    block_hash = sha256("{}{}{}".format(prev_hash, merkle_hash, hexify(nonce, 8)).encode()).hexdigest()
-    int_hash = int(block_hash, 16)
-
-    while int_hash > maximum and not flags["received_block_flag"]:
+    while bin_hash[:difficulty] != "0" * difficulty:
         nonce += 1
-        block_hash = sha256("{}{}{}".format(prev_hash, merkle_hash, hexify(nonce, 8)).encode()).hexdigest()
-        int_hash = int(block_hash, 16)
+        block_hash = calculate_hash(merkle_hash, prev_hash, nonce)
+        bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
 
         if flags["received new block"]:
-            return
+            return -1
 
     return nonce
 
 
-def mine_new_block(blockchain, public_key):
+def mine_new_block(blockchain):
+    public_key = get_config_data("public key")
     block_number = blockchain.__len__() + 1
 
     if block_number <= 2016:
@@ -716,11 +684,15 @@ def mine_new_block(blockchain, public_key):
     else:
         ceiling = 2016 * math.floor((block_number - 1) / 2016)
         floor = ceiling - 2016
-        delta_t = datetime_string_posix(blockchain.get_block_consensus_chain(ceiling)[2]) - datetime_string_posix(
-            blockchain.get_block_consensus_chain(floor)[2])
+        delta_t = blockchain.get_block_consensus_chain(ceiling[2]) - blockchain.get_block_consensus_chain(floor[2])
         difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
 
-    prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__())[3]
+    prev_hash = ""
+
+    if block_number == 1:
+        prev_hash = "0" * 64
+    else:
+        prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__())[8]
 
     block_transactions = []
     all_transactions = transactions.array
@@ -735,15 +707,21 @@ def mine_new_block(blockchain, public_key):
             break
     block_transactions.sort(key=Transaction.sort_key, reverse=True)
 
-    source_transaction = Transaction(datetime.datetime.now().timestamp(), [], [(public_key, 10)])
-    block_transactions = [source_transaction] + block_transactions
+    source_transaction = Transaction(int(datetime.datetime.now().timestamp()), [], [(public_key, 10)])
+
+    final_block_transactions = [source_transaction]
+    for t in block_transactions:
+        final_block_transactions.append(t)
 
     merkle_root_hash = calculate_merkle_root_hash(block_transactions)
 
     nonce = find_nonce(difficulty, prev_hash, merkle_root_hash)
 
-    blockchain.append(block_number, datetime.datetime.now().timestamp(), prev_hash, difficulty, nonce, merkle_root_hash,
-                      transactions, calculate_hash(merkle_root_hash, prev_hash, nonce))
+    if nonce == -1:
+        return
+
+    blockchain.append(block_number, int(datetime.datetime.now().timestamp()), prev_hash, difficulty, nonce,
+                      merkle_root_hash, final_block_transactions, calculate_hash(merkle_root_hash, prev_hash, nonce))
     block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
     message = build_block_message(block)
@@ -767,8 +745,10 @@ def main():
 
     flags["received new block"] = False
     flags["created new block"] = False
+    flags["exception"] = False
+    flags["finished seeding"] = False
 
-    ip = get_config_data("ip address")
+    ip = "192.168.0.16"
     port = get_config_data("port")
     seed_ip = get_config_data("seed address")
     seed_port = get_config_data("seed port")
@@ -781,7 +761,8 @@ def main():
     server_socket = initiate_server(ip, port)
     logging.info("Server: Initiated [{}, {}]"
                  .format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
-    threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,)).start()
+    seeding_thread = threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,))
+    seeding_thread.start()
 
     mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
     mining_thread.start()
@@ -791,8 +772,9 @@ def main():
     message_queues = {}
 
     while inputs:
-        readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs)
-
+        readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
+        logging.debug(
+            "readable, writable, exceptional: {}, {}, {}".format(len(readable), len(writable), len(exceptional)))
         for sock in readable:
             if sock is server_socket:  # new socket has connected to the server
                 connection, client_address = server_socket.accept()
@@ -856,7 +838,7 @@ def main():
 
         if flags["created new block"]:
             mining_thread.join()
-            message = thread_queue.get()[0]
+            message = thread_queue.get()
 
             for sock in client_sockets + inputs:
                 if sock not in message_queues:
@@ -873,6 +855,11 @@ def main():
             if not thread_queue.empty():
                 thread_queue.get()
             mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
+            mining_thread.start()
+
+        if flags["finished seeding"]:
+            logging.info("finished seeding")
+            seeding_thread.join()
 
 
 if __name__ == '__main__':
