@@ -15,10 +15,11 @@ from hashlib import sha256
 from time import sleep
 import select
 import pickle
-from Dependencies import Blockchain
-from Dependencies import SyncedArray
-from Dependencies import Transaction
-from Dependencies import Flags
+from FullNode.Dependencies import Blockchain
+from FullNode.Dependencies import Blockchain
+from FullNode.Dependencies import SyncedArray
+from FullNode.Dependencies import Transaction
+from FullNode.Dependencies import Flags
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
