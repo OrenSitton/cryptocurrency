@@ -16,7 +16,6 @@ from time import sleep
 import select
 import pickle
 from FullNode.Dependencies import Blockchain
-from FullNode.Dependencies import Blockchain
 from FullNode.Dependencies import SyncedArray
 from FullNode.Dependencies import Transaction
 from FullNode.Dependencies import Flags
