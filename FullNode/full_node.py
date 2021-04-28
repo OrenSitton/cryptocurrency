@@ -4,7 +4,7 @@ File: Full Node.py
 Python Version: 3
 Description:
 """
-
+# TODO: update protocol for bigger nonce
 import logging
 import queue
 import socket
@@ -327,15 +327,14 @@ def validate_transaction(transaction, blockchain, prev_block_hash=""):
 
 
 def calculate_difficulty(delta_t, prev_difficulty):
-    ratio = round(delta_t / 1209600)
+    ratio = (1209600 / delta_t)
     difficulty_addition = math.log(ratio, 2)
     if difficulty_addition > 0:
-        logging.error(prev_difficulty + math.floor(difficulty_addition))
+        return prev_difficulty + math.ceil(difficulty_addition)
+    elif difficulty_addition < 0 < prev_difficulty + math.floor(difficulty_addition):
         return prev_difficulty + math.floor(difficulty_addition)
     elif difficulty_addition < 0:
-        logging.error(prev_difficulty + math.ceil(difficulty_addition))
-        return prev_difficulty + math.ceil(difficulty_addition)
-    logging.error(prev_difficulty)
+        return 1
     return prev_difficulty
 
 
@@ -468,6 +467,7 @@ def handle_block_request_message(message, blockchain):
 
 
 def handle_block_message(message, blockchain):
+    # TODO: update to match new protocol
     # validate minimum length
     if len(message) < 155:
         return None, -1
@@ -683,14 +683,17 @@ def mine_new_block(blockchain):
     public_key = get_config_data("public key")
     block_number = blockchain.__len__() + 1
 
+    difficulty = 0
+
     if block_number <= 2016:
         difficulty = get_config_data("default difficulty")
     else:
         ceiling = 2016 * math.floor((block_number - 1) / 2016)
-        floor = ceiling - 2016
-        # TODO: check if delta_t works
-        delta_t = blockchain.get_block_consensus_chain(ceiling) - blockchain.get_block_consensus_chain(floor)
+        floor = ceiling - 2015
+        delta_t = blockchain.get_block_consensus_chain(ceiling)[2] - blockchain.get_block_consensus_chain(floor)[2]
         difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
+
+    logging.info("New block's difficulty is {}".format(difficulty))
 
     prev_hash = ""
 
@@ -769,12 +772,100 @@ def main():
     seeding_thread = threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,))
     seeding_thread.start()
 
-    mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
+    mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
     mining_thread.start()
 
     inputs.append(server_socket)
 
     message_queues = {}
+    synchronized = False
+    readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
+
+    request_newest_block_message = hexify(71, 5) + "c" + "0" * 70
+
+    for sock in writable:
+        sock.send(request_newest_block_message)
+        logging.info("Synchronizing from other nodes")
+    if not writable:
+        synchronized = True
+        logging.info("No nodes to synchronize from")
+    sync_message_queues = {}
+    while inputs and not synchronized:
+        readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
+        newest_block = blockchain.__len__()
+        target_block = 0
+
+        for sock in readable:
+            if sock is server_socket:
+                connection, client_address = server_socket.accept()
+                connection.setblocking(False)
+                inputs.append(connection)
+                logging.info("[{}, {}]: New node connected".format(client_address[0], client_address[1]))
+            else:
+                size = sock.recv(5).decode()
+                if not size:
+                    logging.info("[{}, {}]: Node disconnected"
+                                 .format(sock.getpeername()[0], sock.getpeername()[1]))
+                    if sock in inputs:
+                        inputs.remove(sock)
+                    elif sock in client_sockets:
+                        client_sockets.remove(sock)
+                    if sock in outputs:
+                        outputs.remove(sock)
+                    if sock in message_queues:
+                        del message_queues[sock]
+                    if sock in sync_message_queues:
+                        del sync_message_queues[sock]
+                else:
+                    size = int(size)
+                    data = sock.recv(size).decode()
+                    if not data[:1] == "d":
+                        reply = handle_message(data, blockchain)
+                        # TODO: implement regular message handling
+                        pass
+                    else:
+                        block_number = int(data[1:7], 16)
+                        if block_number > target_block:
+                            target_block = block_number
+                        elif block_number == newest_block or block_number == newest_block + 1:
+                            newest_block = block_number
+                            reply = handle_block_message(data, blockchain)
+                            if reply[1] == 1:
+                                if sock not in outputs:
+                                    outputs.append(sock)
+                                if sock not in message_queues:
+                                    message_queues[sock] = queue.SimpleQueue()
+                                message_queues[sock].put(reply[0])
+                            elif reply[1] == 2:
+                                for other_sock in inputs:
+                                    if other_sock not in outputs:
+                                        outputs.append(other_sock)
+                                    if other_sock not in message_queues:
+                                        message_queues[other_sock] = queue.SimpleQueue()
+                                    message_queues[other_sock].put(reply[0])
+
+                            if reply[1] != -1:
+                                if sock not in sync_message_queues:
+                                    sync_message_queues[sock] = queue.SimpleQueue()
+                                next_block_request = "c{}{}".format(hexify(block_number + 1, 6), data[25:89])
+                                next_block_request = "{}{}".format(hexify(len(next_block_request), 5), next_block_request)
+                                sync_message_queues[sock].put(next_block_request)
+
+        for sock in writable:
+            if not sync_message_queues[sock].empty():
+                message = sync_message_queues[sock].get()
+                sock.send(message.encode())
+        for sock in exceptional:
+            if sock in inputs:
+                inputs.remove(sock)
+            elif sock in client_sockets:
+                client_sockets.remove(sock)
+            if sock in outputs:
+                outputs.remove(sock)
+            if sock in sync_message_queues:
+                del sync_message_queues[sock]
+            if sock in message_queues:
+                del message_queues[sock]
 
     while inputs:
         readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
@@ -839,7 +930,7 @@ def main():
             if sock in outputs:
                 outputs.remove(sock)
             if sock in message_queues:
-                message_queues.pop(sock)
+                del message_queues[sock]
 
         if flags["created new block"]:
             mining_thread.join()
@@ -852,14 +943,14 @@ def main():
                     outputs.append(sock)
                 message_queues[sock].put(message)
 
-            mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
+            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
             mining_thread.start()
 
         if flags["received new block"]:
             mining_thread.join()
             if not thread_queue.empty():
                 thread_queue.get()
-            mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
+            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
             mining_thread.start()
 
         if flags["finished seeding"]:
@@ -868,5 +959,5 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.ERROR, format="%(threadName)s [%(asctime)s] %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(threadName)s [%(asctime)s] %(message)s")
     main()
