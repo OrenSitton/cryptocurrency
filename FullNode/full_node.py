@@ -879,7 +879,7 @@ def main():
                 logging.info("[{}, {}]: New node connected".format(client_address[0], client_address[1]))
 
             else:
-                size = sock.read(5).decode()
+                size = sock.recv(5).decode()
                 if not size:
                     logging.info("[{}, {}]: Node disconnected"
                                  .format(sock.getpeername()[0], sock.getpeername()[1]))
@@ -934,7 +934,7 @@ def main():
 
         if flags["created new block"]:
             mining_thread.join()
-            message = thread_queue.get()
+            message = thread_queue.get()[0]
 
             for sock in client_sockets + inputs:
                 if sock not in message_queues:
