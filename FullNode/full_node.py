@@ -5,6 +5,7 @@ Python Version: 3
 Description:
 """
 # TODO: update protocol for bigger nonce
+# TODO: update protocol for csv synchronizing
 import logging
 import queue
 import socket
@@ -40,10 +41,9 @@ flags : Flags
     dictionary for thread initiation / termination flags
 """
 
+inputs = SyncedArray(name="input list")
 client_sockets = SyncedArray(name="client List")
 transactions = SyncedArray(name="transaction List")
-inputs = SyncedArray(name="input List")
-outputs = SyncedArray(name="output List")
 thread_queue = queue.SimpleQueue()
 flags = Flags()
 
@@ -57,7 +57,7 @@ Initiation Functions
 def get_config_data(data):
     with open("Dependencies\\config.txt", "rb") as file:
         configuration = pickle.load(file)
-
+        logging.debug("Returned configuration data [{}:{}]".format(data, configuration))
     return configuration.get(data)
 
 
@@ -84,11 +84,11 @@ def initiate_client(ip, port):
 
     try:
         client_socket.connect((ip, port))
-        logging.info("Connected to node [{}, {}]"
+        logging.info("[{}, {}]: Connected to node"
                      .format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
 
     except ConnectionRefusedError:
-        logging.info("Connection attempt refused [{}, {}]"
+        logging.info("[{}, {}]: Connection attempt refused"
                      .format(ip, port))
 
     else:
@@ -407,7 +407,7 @@ Network Protocol Functions
 
 
 def handle_peer_request_message():
-    logging.info("Message is a peer request message")
+    logging.debug("Message is a peer request message")
     reply = build_peers_message(inputs.array)
     reply = "{}{}".format(hexify(len(reply), 5), reply)
     return reply, 1
@@ -415,13 +415,13 @@ def handle_peer_request_message():
 
 def handle_peer_message(message):
     if len(message) < 3:
-        logging.info("Message is an invalid peer message")
+        logging.debug("Message is an invalid peer message")
         return None, -1
     peer_count = int(message[1:3])
     if len(message) < 3 + 8 * peer_count:
-        logging.info("Message is an invalid peer message")
+        logging.debug("Message is an invalid peer message")
         return None, -1
-    logging.info("Message is a peer message")
+    logging.debug("Message is a peer message")
     message = message[3:]
 
     addresses = []
@@ -441,7 +441,7 @@ def handle_peer_message(message):
 def handle_block_request_message(message, blockchain):
     if len(message) != 71:
         # message not in correct format
-        logging.info("Message is an invalid block request")
+        logging.debug("Message is an invalid block request")
         return None, -1
     else:
         block_number = int(message[1:7], 16)
@@ -449,7 +449,7 @@ def handle_block_request_message(message, blockchain):
         block = ""
         if block_number == 0 and previous_block_hash.replace("0", ""):
             # message in incorrect format
-            logging.info("Message is an invalid block request")
+            logging.debug("Message is an invalid block request")
             return None, -1
         elif block_number == 0:
             block = blockchain.get_block_consensus_chain(blockchain.__len__())
@@ -459,10 +459,10 @@ def handle_block_request_message(message, blockchain):
 
         if block:
             reply = build_block_message(block)
-            logging.info("Message is a block request")
+            logging.debug("Message is a block request")
             return "{}{}".format(hexify(len(reply), 5), reply), 1
         else:
-            logging.info("Message is an invalid block request")
+            logging.debug("Message is an invalid block request")
             return None, -1
 
 
@@ -591,6 +591,7 @@ def handle_block_message(message, blockchain):
     # raise flag if appropriate
     if blockchain.get_block_consensus_chain(blockchain.__len__())[3] == previous_block_hash:
         flags["received new block"] = True
+        logging.info("Received new block")
 
     # remove transactions from list if necessary
     for t in transactions:
@@ -598,6 +599,7 @@ def handle_block_message(message, blockchain):
             transactions.remove(t)
 
     # return message
+    # TODO: return alternative message for futuristic block
     return "{}{}".format(len(message), message), 2
 
 
@@ -605,24 +607,24 @@ def handle_transaction_message(message, blockchain):
     try:
         transaction = Transaction.from_network_format(message)
     except ValueError:
-        logging.info("Message is an invalid transaction message [message format invalid]")
+        logging.debug("Message is an invalid transaction message [message format invalid]")
         return None, -1
     else:
         if transaction in transactions:
-            logging.info("Message is a previously received transaction message")
+            logging.debug("Message is a previously received transaction message")
             return None, -1
         msg_validity = validate_transaction(transaction, blockchain)
         if msg_validity[0]:
             transactions.append(transaction)
-            logging.info("Message is a transaction message")
+            logging.debug("Message is a transaction message")
             return "{}{}".format(len(message), message), 2
         else:
-            logging.info("Message is an invalid transaction message [{}]".format(msg_validity[1]))
+            logging.debug("Message is an invalid transaction message [{}]".format(msg_validity[1]))
             return None, -1
 
 
 def handle_error_message(message):
-    logging.info("Message is an error message [{}]".format(message))
+    logging.debug("Message is an error message [{}]".format(message))
     return None, -1
 
 
@@ -637,7 +639,7 @@ def handle_message(message, blockchain):
     message_type = message[:1]
 
     if message_type not in message_handling_functions:
-        logging.info("Message is invalid (unrecognized message type)")
+        logging.debug("Message is invalid (unrecognized message type)")
         reply = build_error_message("unrecognized message type")
         reply = "{}{}".format(hexify(len(reply), 5), reply)
         return reply, 1
@@ -693,7 +695,7 @@ def mine_new_block(blockchain):
         delta_t = blockchain.get_block_consensus_chain(ceiling)[2] - blockchain.get_block_consensus_chain(floor)[2]
         difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
 
-    logging.info("New block's difficulty is {}".format(difficulty))
+    logging.debug("New block's difficulty is {}".format(difficulty))
 
     prev_hash = ""
 
@@ -735,6 +737,7 @@ def mine_new_block(blockchain):
     message = build_block_message(block)
     thread_queue.put(("{}{}".format(len(message), message), 2))
     flags["created new block"] = True
+    logging.info("Created new block")
 
 
 """
@@ -744,18 +747,17 @@ Main Function
 
 
 def main():
-    threading.current_thread().name = "MainNodeThread"
-
     global thread_queue
     global flags
     global inputs
     global outputs
 
+    threading.current_thread().name = "MainNodeThread"
+
     flags["received new block"] = False
     flags["created new block"] = False
     flags["exception"] = False
     flags["finished seeding"] = False
-
     ip = get_config_data("ip address")
     port = get_config_data("port")
     seed_ip = get_config_data("seed address")
@@ -763,201 +765,191 @@ def main():
     sql_address = get_config_data("sql address")
     sql_user = get_config_data("sql user")
     sql_password = get_config_data("sql password")
-
     blockchain = Blockchain(sql_address, sql_user, sql_password)
-
     server_socket = initiate_server(ip, port)
     logging.info("Server: Initiated [{}, {}]"
                  .format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
     seeding_thread = threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,))
     seeding_thread.start()
-
     mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
     mining_thread.start()
-
     inputs.append(server_socket)
-
     message_queues = {}
+
     synchronized = False
     readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
-
     request_newest_block_message = hexify(71, 5) + "c" + "0" * 70
+
+    if not writable:
+        synchronized = True
 
     for sock in writable:
         sock.send(request_newest_block_message)
-        logging.info("Synchronizing from other nodes")
-    if not writable:
-        synchronized = True
-        logging.info("No nodes to synchronize from")
+
     sync_message_queues = {}
-    while inputs and not synchronized:
-        readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
-        newest_block = blockchain.__len__()
-        target_block = 0
+    target_block_number = 0
+    current_block_number = blockchain.__len__()
+
+    while inputs:
+        # TODO: set up loop for sync messages
+        readable, writable, exceptional = select.select(inputs.array, client_sockets.array, inputs.array +
+                                                        client_sockets.array, 0)
 
         for sock in readable:
             if sock is server_socket:
-                connection, client_address = server_socket.accept()
-                connection.setblocking(False)
-                inputs.append(connection)
-                logging.info("[{}, {}]: New node connected".format(client_address[0], client_address[1]))
+                client_socket, address = server_socket.accept()
+                inputs.append(client_socket)
+
+                client_socket_exists = False
+
+                for other_sock in client_sockets:
+                    if other_sock.getpeername()[0] == address[0]:
+                        client_socket_exists = True
+                if not client_socket_exists:
+                    new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    new_socket.connect((address[0], port))
+                    client_sockets.append(new_socket)
             else:
                 size = sock.recv(5).decode()
-                if not size:
-                    logging.info("[{}, {}]: Node disconnected"
-                                 .format(sock.getpeername()[0], sock.getpeername()[1]))
-                    if sock in inputs:
-                        inputs.remove(sock)
-                    elif sock in client_sockets:
-                        client_sockets.remove(sock)
-                    if sock in outputs:
-                        outputs.remove(sock)
-                    if sock in message_queues:
-                        del message_queues[sock]
-                    if sock in sync_message_queues:
-                        del sync_message_queues[sock]
-                else:
-                    size = int(size)
-                    data = sock.recv(size).decode()
-                    if not data[:1] == "d":
-                        reply = handle_message(data, blockchain)
-                        # TODO: implement regular message handling
-                        pass
-                    else:
-                        block_number = int(data[1:7], 16)
-                        if block_number > target_block:
-                            target_block = block_number
-                        elif block_number == newest_block or block_number == newest_block + 1:
-                            newest_block = block_number
-                            reply = handle_block_message(data, blockchain)
-                            if reply[1] == 1:
-                                if sock not in outputs:
-                                    outputs.append(sock)
-                                if sock not in message_queues:
-                                    message_queues[sock] = queue.SimpleQueue()
-                                message_queues[sock].put(reply[0])
-                            elif reply[1] == 2:
-                                for other_sock in inputs:
-                                    if other_sock not in outputs:
-                                        outputs.append(other_sock)
-                                    if other_sock not in message_queues:
-                                        message_queues[other_sock] = queue.SimpleQueue()
-                                    message_queues[other_sock].put(reply[0])
+                if size:
+                    message = sock.recv(int(size)).deocde()
+                    reply = handle_message(message)
 
-                            if reply[1] != -1:
-                                if sock not in sync_message_queues:
-                                    sync_message_queues[sock] = queue.SimpleQueue()
-                                next_block_request = "c{}{}".format(hexify(block_number + 1, 6), data[25:89])
-                                next_block_request = "{}{}".format(hexify(len(next_block_request), 5), next_block_request)
-                                sync_message_queues[sock].put(next_block_request)
+                    if reply[1] == -1:
+                        logging.debug("No reply")
+
+                    if reply[1] == 1:
+                        logging.debug("Replying to sender")
+                        if sock.getpeername()[0] not in message_queues:
+                            message_queues[sock.getpeername()[0]] = queue.SimpleQueue()
+                        message_queues[sock.getpeername()[0]].put(reply[0])
+
+                    elif reply[1] == 2:
+                        logging.debug("Sending reply to all nodes")
+
+                        for other_sock in client_sockets:
+                            if other_sock.getpeername()[0] not in message_queues:
+                                message_queues[other_sock.getpeername()[0]] = queue.SimpleQueue()
+                            message_queues[other_sock.getpeername()[0]].put(reply[0])
+                else:
+                    address = sock.getpeername()[0]
+                    sock.close()
+                    inputs.remove(sock)
+
+                    if address in message_queues:
+                        del message_queues[address]
+
+                    for other_sock in client_sockets:
+                        if other_sock.getpeername()[0] == address:
+                            other_sock.close()
+                            client_sockets.remove(other_sock)
 
         for sock in writable:
-            if not sync_message_queues[sock].empty():
-                message = sync_message_queues[sock].get()
-                sock.send(message.encode())
+            address = sock.getpeername()[0]
+
+            if address in message_queues:
+                if not message_queues[address].empty():
+                    message = message_queues[address].get()
+                    sock.send(message.encode())
+
         for sock in exceptional:
-            if sock in inputs:
-                inputs.remove(sock)
-            elif sock in client_sockets:
-                client_sockets.remove(sock)
-            if sock in outputs:
-                outputs.remove(sock)
-            if sock in sync_message_queues:
-                del sync_message_queues[sock]
-            if sock in message_queues:
-                del message_queues[sock]
+            address = sock.getpeername()[0]
+            for other_sock in client_sockets:
+                if other_sock.getpeername()[0] == address:
+                    other_sock.close()
+                    client_sockets.remove(other_sock)
+            for other_sock in inputs:
+                if other_sock.getpeername()[0] == address:
+                    other_sock.close()
+                    inputs.remove(other_sock)
+
+            if address in message_queues:
+                del message_queues[address]
 
     while inputs:
-        readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
-        logging.debug(
-            "readable, writable, exceptional: {}, {}, {}".format(len(readable), len(writable), len(exceptional)))
-        for sock in readable:
-            if sock is server_socket:  # new socket has connected to the server
-                connection, client_address = server_socket.accept()
-                connection.setblocking(False)
-                inputs.append(connection)
-                logging.info("[{}, {}]: New node connected".format(client_address[0], client_address[1]))
+        readable, writable, exceptional = select.select(inputs.array, client_sockets.array, inputs.array +
+                                                        client_sockets.array, 0)
 
+        for sock in readable:
+            if sock is server_socket:
+                client_socket, address = server_socket.accept()
+                inputs.append(client_socket)
+
+                client_socket_exists = False
+
+                for other_sock in client_sockets:
+                    if other_sock.getpeername()[0] == address[0]:
+                        client_socket_exists = True
+                if not client_socket_exists:
+                    new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    new_socket.connect((address[0], port))
+                    client_sockets.append(new_socket)
             else:
                 size = sock.recv(5).decode()
-                if not size:
-                    logging.info("[{}, {}]: Node disconnected"
-                                 .format(sock.getpeername()[0], sock.getpeername()[1]))
-                    if sock in inputs:
-                        inputs.remove(sock)
-                    else:
-                        client_sockets.remove(sock)
-                    if sock in outputs:
-                        outputs.remove(sock)
-                    if sock in message_queues:
-                        del message_queues[sock]
-                else:
-                    size = int(size, 16)
-                    message = sock.read(size)
-                    logging.info("[{},{}]: Received message from node".format(sock.getpeername[0], sock.getpeername[1]))
-                    reply = handle_message(message, blockchain)
+                if size:
+                    message = sock.recv(int(size)).deocde()
+                    reply = handle_message(message)
+
                     if reply[1] == -1:
-                        logging.info("[{},{}]: Message does not warrant a reply"
-                                     .format(sock.getpeername[0], sock.getpeername[1]))
-                    elif reply[1] == 1:
-                        logging.info("[{},{}]: Replying to sending node only"
-                                     .format(sock.getpeername[0], sock.getpeername[1]))
-                        if sock not in message_queues:
-                            message_queues[sock] = queue.SimpleQueue()
-                        if sock not in outputs:
-                            outputs.append(sock)
-                        message_queues[sock].put(reply[0])
+                        logging.debug("No reply")
+
+                    if reply[1] == 1:
+                        logging.debug("Replying to sender")
+                        if sock.getpeername()[0] not in message_queues:
+                            message_queues[sock.getpeername()[0]] = queue.SimpleQueue()
+                        message_queues[sock.getpeername()[0]].put(reply[0])
+
                     elif reply[1] == 2:
-                        logging.info("[{},{}]: Replying to all connected nodes"
-                                     .format(sock.getpeername[0], sock.getpeername[1]))
-                        for other_sock in client_sockets + inputs:
-                            if other_sock not in message_queues:
-                                message_queues[other_sock] = queue.SimpleQueue()
-                            if other_sock not in outputs:
-                                outputs.append(other_sock)
-                            message_queues[other_sock].put(reply[0])
+                        logging.debug("Sending reply to all nodes")
+
+                        for other_sock in client_sockets:
+                            if other_sock.getpeername()[0] not in message_queues:
+                                message_queues[other_sock.getpeername()[0]] = queue.SimpleQueue()
+                            message_queues[other_sock.getpeername()[0]].put(reply[0])
+                else:
+                    address = sock.getpeername()[0]
+                    sock.close()
+                    inputs.remove(sock)
+
+                    if address in message_queues:
+                        del message_queues[address]
+
+                    for other_sock in client_sockets:
+                        if other_sock.getpeername()[0] == address:
+                            other_sock.close()
+                            client_sockets.remove(other_sock)
 
         for sock in writable:
-            if not message_queues[sock].empty():
-                message = message_queues[sock].get()
-                sock.send(message.encode())
+            address = sock.getpeername()[0]
+
+            if address in message_queues:
+                if not message_queues[address].empty():
+                    message = message_queues[address].get()
+                    sock.send(message.encode())
 
         for sock in exceptional:
-            if sock in inputs:
-                inputs.remove(sock)
-            elif sock in client_sockets:
-                client_sockets.remove(sock)
-            if sock in outputs:
-                outputs.remove(sock)
-            if sock in message_queues:
-                del message_queues[sock]
+            address = sock.getpeername()[0]
+            for other_sock in client_sockets:
+                if other_sock.getpeername()[0] == address:
+                    other_sock.close()
+                    client_sockets.remove(other_sock)
+            for other_sock in inputs:
+                if other_sock.getpeername()[0] == address:
+                    other_sock.close()
+                    inputs.remove(other_sock)
 
-        if flags["created new block"]:
-            mining_thread.join()
-            message = thread_queue.get()[0]
-
-            for sock in client_sockets + inputs:
-                if sock not in message_queues:
-                    message_queues[sock] = queue.SimpleQueue()
-                if sock not in outputs:
-                    outputs.append(sock)
-                message_queues[sock].put(message)
-
-            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-            mining_thread.start()
+            if address in message_queues:
+                del message_queues[address]
 
         if flags["received new block"]:
-            mining_thread.join()
-            if not thread_queue.empty():
-                thread_queue.get()
-            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-            mining_thread.start()
-
+            pass
+        if flags["created new block"]:
+            pass
         if flags["finished seeding"]:
-            logging.info("finished seeding")
+            flags["finished seeding"] = False
             seeding_thread.join()
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, format="%(threadName)s [%(asctime)s] %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(threadName)s [%(asctime)s]: %(message)s")
     main()

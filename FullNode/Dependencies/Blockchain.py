@@ -3,8 +3,10 @@ Author: Oren Sitton
 File: Blockchain.py
 Python Version: 3
 """
-
 from mysql import connector
+import os
+import csv
+import numpy as np
 import logging
 
 
@@ -174,6 +176,25 @@ class Blockchain:
         """
         self.cursor.execute("DELETE FROM Blocks WHERE self_hash={}".format(block_hash))
 
+    def export(self, directory):
+        current_directory = os.getcwd()
+        os.chdir(directory)
+
+        self.cursor.execute("SELECT * FROM Blocks")
+        results = self.cursor.fetchall()
+
+        with open('blockchain.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["id", "block_number", "time_created", "prev_hash", "difficulty", "nonce",
+                             "merkle_root_hash", "transactions", "self_hash"])
+            for result in results:
+                result_array = []
+                for value in result:
+                    result_array.append(value)
+                writer.writerow(result_array)
+
+        os.chdir(current_directory)
+
     def get_block_by_hash(self, block_hash):
         """
         get method for block with certain hash
@@ -226,6 +247,7 @@ class Blockchain:
 
 
 def main():
+    Blockchain().export("C:\\Users\\Orens\\Desktop")
     pass
 
 
