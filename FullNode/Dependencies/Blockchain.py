@@ -3,11 +3,12 @@ Author: Oren Sitton
 File: Blockchain.py
 Python Version: 3
 """
-from mysql import connector
-import os
 import csv
-import numpy as np
-import logging
+import os
+
+from mysql import connector
+
+from Dependencies import Block
 
 
 class Blockchain:
@@ -79,12 +80,12 @@ class Blockchain:
 
         # create Block table in Blockchain database if it doesn't exist yet
         self.cursor.execute("CREATE TABLE if not EXISTS Blocks (id int UNSIGNED PRIMARY KEY AUTO_INCREMENT, "
-                            "block_number INT UNSIGNED, time_created BIT(32),"
-                            "prev_hash VARCHAR(64) NOT NULL, difficulty SMALLINT, nonce MEDIUMINT, "
+                            "block_number INT UNSIGNED, timestamp BIT(32),"
+                            "difficulty SMALLINT, nonce VARCHAR(64) NOT NULL, prev_hash VARCHAR(64) NOT NULL,"
                             "merkle_root_hash VARCHAR(64), transactions LONGBLOB, self_hash VARCHAR(64))")
 
         if self.__sizeof__() == 0:
-            self.append(0, 0, "", 0, 0, "", [], "")
+            self.append(0, 0, 0, 0, 0, "", [], "")
 
     def __getitem__(self, block_number, prev_hash=""):
         """
@@ -104,6 +105,9 @@ class Blockchain:
         self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
 
         results = self.cursor.fetchall()
+
+        for x in range(len(results)):
+            results[x] = Block(results[x])
 
         if results and not prev_hash:
             return results
@@ -135,7 +139,7 @@ class Blockchain:
 
         return len(self.cursor.fetchall())
 
-    def append(self, block_number, timestamp, prev_hash, difficulty, nonce, merkle_root_hash, transactions,
+    def append(self, block_number, timestamp, difficulty, nonce, previous_hash, merkle_root_hash, transactions,
                self_hash):
         """
         appends new block to the blockchain database
@@ -143,12 +147,12 @@ class Blockchain:
         :type block_number: int
         :param timestamp: time block was created (posix time)
         :type timestamp: int
-        :param prev_hash: hash of the previous block
-        :type prev_hash: str
         :param difficulty: difficulty of block (length of hash zero prefix)
         :type difficulty: int
         :param nonce: block nonce used to achieve targeted difficulty
         :type nonce: int
+        :param previous_hash:
+        :type previous_hash:
         :param merkle_root_hash: root of transactions merkle tree
         :type merkle_root_hash: str
         :param transactions: list of transactions to be included in the block
@@ -162,11 +166,22 @@ class Blockchain:
         for x in transactions:
             t += "{},".format(x)
         t = t[:-1]
-        self.cursor.execute("INSERT INTO Blocks (block_number, time_created, prev_hash, difficulty, nonce, "
-                            "merkle_root_hash, transactions, self_hash) VALUES ({}, {}, \"{}\", {}, {}, "
-                            "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, prev_hash, difficulty,
-                                                             nonce, merkle_root_hash, t, self_hash))
+        self.cursor.execute("INSERT INTO Blocks (block_number, timestamp, difficulty, nonce, prev_hash,"
+                            " merkle_root_hash, transactions, self_hash) VALUES ({}, {}, {}, \"{}\", \"{}\","
+                            "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, difficulty, nonce, previous_hash,
+                                                             merkle_root_hash, t, self_hash))
         self.db.commit()
+
+    def append_block(self, block):
+        """
+
+        :param block:
+        :type block: Block
+        :return:
+        :rtype:
+        """
+        # TODO: implement
+        pass
 
     def delete(self, block_hash):
         """
@@ -201,15 +216,15 @@ class Blockchain:
         :param block_hash: block hash
         :type block_hash: str
         :return: block with hash block_hash
-        :rtype: tuple
+        :rtype: Block
         """
         self.cursor.execute("SELECT * FROM Blocks WHERE self_hash={}".format(block_hash))
         result = self.cursor.fetchall()
 
         if result:
-            return result[0]
+            return Block(result[0])
         else:
-            return []
+            return None
 
     def get_block_consensus_chain(self, block_number):
         """
@@ -217,7 +232,7 @@ class Blockchain:
         :param block_number: block number of requested block
         :type block_number: int
         :return: requested block
-        :rtype: tuple
+        :rtype: Block
         :raises: IndexError: block number is not within range
         :raises: TypeError: expected block number to be of type int
         """
@@ -233,21 +248,40 @@ class Blockchain:
 
         results = self.cursor.fetchall()
 
+        for x in range(len(results)):
+            results[x] = Block(results[x])
+
         if len(results) == 1:
             return results[0]
         else:
             minimum_posix = results[0]
             for result in results:
-                if result[2] < minimum_posix[2]:
+                if result.timestamp < minimum_posix.timestamp:
                     minimum_posix = result
             if block_number == self.__len__():
                 return minimum_posix
             else:
-                return self.get_block_by_hash(minimum_posix[3])
+                return self.get_block_by_hash(minimum_posix.prev_hash)
+
+    def get_block_by_previous_hash(self, previous_hash):
+        """
+
+        :param previous_hash:
+        :type previous_hash:
+        :return:
+        :rtype: Block
+        """
+        self.cursor.execute("SELECT * FROM Blocks WHERE prev_hash={}".format(previous_hash))
+        result = self.cursor.fetchall()
+
+        if result:
+            return Block(result[0])
+        else:
+            return None
 
 
 def main():
-    Blockchain().export("C:\\Users\\Orens\\Desktop")
+    Blockchain()
     pass
 
 
