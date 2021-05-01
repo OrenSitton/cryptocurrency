@@ -51,10 +51,21 @@ flags = Flags()
 """
 Initiation Functions
 --------------------
+
+config(key, directory="Dependencies\\config.txt")
+
+initialize_client(ip, port)
+
+initialize_clients(addresses, port)
+    
+initialize_server(ip, port)
+
+seed_clients(dns_ip, dns_port, peer_port, **kwargs)
+
 """
 
 
-def get_config_data(key, directory="Dependencies\\config.txt"):
+def config(key, directory="Dependencies\\config.txt"):
     """
     returns data from configuration file
     :param key: dictionary key to return value of
@@ -70,33 +81,12 @@ def get_config_data(key, directory="Dependencies\\config.txt"):
         with open(directory, "rb") as file:
             configuration = pickle.load(file)
     except FileNotFoundError:
-        raise FileNotFoundError("get_config_data: configuration file not found at {}".format(directory))
+        raise FileNotFoundError("config: configuration file not found at {}".format(directory))
     else:
         if not isinstance(configuration, dict):
-            raise TypeError("get_config_data: unpickled object is not a dictionary")
+            raise TypeError("config: expected file to contain pickled dict")
         else:
             return configuration.get(key)
-
-
-def initialize_server(ip, port):
-    """
-    initializes server socket object to address
-    :param ip: ipv4 address to initialize server socket to
-    :type ip: str
-    :param port: tcp port to initialize server socket to
-    :type port: int
-    :return: server socket object
-    :rtype: socket.socket
-    """
-    try:
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setblocking(False)
-        server_socket.bind((ip, port))
-        server_socket.listen(5)
-    except OSError:
-        return None
-    else:
-        return server_socket
 
 
 def initialize_client(ip, port):
@@ -134,7 +124,7 @@ def initialize_clients(addresses, port):
     """
     threads = []
     for i, address in enumerate(addresses):
-        if address != get_config_data("ip_address"):
+        if address != config("ip_address"):
             thread = threading.Thread(name="Client Connection Thread {}".format(i + 1), target=initialize_client,
                                       args=(address, port,))
             thread.start()
@@ -145,6 +135,27 @@ def initialize_clients(addresses, port):
 
     logging.info("{} nodes accepted connection"
                  .format(len(client_sockets)))
+
+
+def initialize_server(ip, port):
+    """
+    initializes server socket object to address
+    :param ip: ipv4 address to initialize server socket to
+    :type ip: str
+    :param port: tcp port to initialize server socket to
+    :type port: int
+    :return: server socket object
+    :rtype: socket.socket
+    """
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setblocking(False)
+        server_socket.bind((ip, port))
+        server_socket.listen(5)
+    except OSError:
+        return None
+    else:
+        return server_socket
 
 
 def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
@@ -218,7 +229,56 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
 """
 Calculation Functions
 ---------------------
+
+calculate_difficulty(delta_t, prev_difficulty)
+
+calculate_hash(merkle_root_hash, prev_block_hash, nonce)
+
+hexify(number, length)
+
+hexify_string(string)
+
+validate_transaction(transaction, blockchain, previous_block_hash="")
+
+validate_transaction_data(transaction, blockchain, previous_block_hash)
+
+validate_transaction_consensus(transaction, blockchain)
+
+validate_transaction_format(transaction)
 """
+
+
+def calculate_difficulty(delta_t, prev_difficulty):
+    ratio = (1209600 / delta_t)
+    difficulty_addition = math.log(ratio, 2)
+    if difficulty_addition > 0:
+        return prev_difficulty + math.ceil(difficulty_addition)
+    elif difficulty_addition < 0 < prev_difficulty + math.floor(difficulty_addition):
+        return prev_difficulty + math.floor(difficulty_addition)
+    elif difficulty_addition < 0:
+        return 1
+    return prev_difficulty
+
+
+def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
+    value = "{}{}{}".format(prev_block_hash, merkle_root_hash, nonce)
+    return sha256(value.encode()).hexdigest()
+
+
+def calculate_merkle_root_hash(block_transactions):
+    block_transactions = block_transactions.copy()
+    for x in range(len(block_transactions)):
+        block_transactions[x] = block_transactions[x].sha256_hash()
+    if not len(block_transactions):
+        return "0" * 64
+    while len(block_transactions) != 1:
+        tmp_transactions = []
+        for x in range(0, len(block_transactions) - 1, 2):
+            hash1 = block_transactions[x]
+            hash2 = block_transactions[x + 1]
+            tmp_transactions.append(sha256("{}{}".format(hash1, hash2).encode()).hexdigest())
+        block_transactions = tmp_transactions
+    return block_transactions[0]
 
 
 def hexify(number, length):
@@ -264,46 +324,13 @@ def hexify_string(string):
     return string.encode("utf-8").hex()
 
 
-def validate_transaction_format(transaction):
-    """
-    validates that the transaction's format is valid
-    :param transaction: transaction to validate
-    :type transaction: Transaction
-    :return: True if the transaction is valid, False if else
-    :rtype: bool
-    """
-    # validate that transaction inputs are in order
-    for x in range(0, len(transaction.inputs) - 1):
-        if int(transaction.inputs[x][0], 16) > int(transaction.inputs[x + 1][0], 16):
-            return False, "inputs order invalid"
-        elif int(transaction.inputs[x][0], 16) == int(transaction.inputs[x + 1][0], 16):
-            if transaction.inputs[x][1] > transaction.inputs[x + 1][1]:
-                return False, "inputs order invalid"
-            elif transaction.inputs[x][1] == transaction.inputs[x + 1][1]:
-                if transaction.inputs[x][2] > transaction.inputs[x + 1][2]:
-                    return False, "input order invalid"
-
-    # transaction inputs are in order, validate that transaction outputs are in order\
-    for x in range(0, len(transaction.outputs) - 1):
-        if int(transaction.outputs[x][0], 16) > int(transaction.outputs[x][0]):
-            return False, "outputs order invalid"
-
-    # transaction outputs are in order, validate that input sources don't appear twice
-    for i, input1 in enumerate(transaction.inputs):
-        for j, input2 in enumerate(transaction.inputs):
-            if i != j:
-                if input1[0] == input2[0] and input1[1] == input2[1] and input1[2] == input1[2]:
-                    return False, "input source appears twice"
-
-    # input sources don't appear twice, validate that outputs keys don't appear twice
-    for i, output1 in enumerate(transaction.outputs):
-        for j, output2 in enumerate(transaction.outputs):
-            if i != j:
-                if output1[0] == output2[0]:
-                    return False, "output key appears twice"
-
-    # output keys don't appear twice
-    return True, ""
+def validate_transaction(transaction, blockchain, previous_block_hash=""):
+    if validate_transaction_format(transaction)[0]:
+        if previous_block_hash:
+            return validate_transaction_data(transaction, blockchain, previous_block_hash)
+        else:
+            return validate_transaction_data_consensus(transaction, blockchain)
+    return validate_transaction_format(transaction)
 
 
 def validate_transaction_data(transaction, blockchain, previous_block_hash):
@@ -424,46 +451,46 @@ def validate_transaction_data_consensus(transaction, blockchain):
     return True, ""
 
 
-def validate_transaction(transaction, blockchain, previous_block_hash=""):
-    if validate_transaction_format(transaction)[0]:
-        if previous_block_hash:
-            return validate_transaction_data(transaction, blockchain, previous_block_hash)
-        else:
-            return validate_transaction_data_consensus(transaction, blockchain)
-    return validate_transaction_format(transaction)
+def validate_transaction_format(transaction):
+    """
+    validates that the transaction's format is valid
+    :param transaction: transaction to validate
+    :type transaction: Transaction
+    :return: True if the transaction is valid, False if else
+    :rtype: bool
+    """
+    # validate that transaction inputs are in order
+    for x in range(0, len(transaction.inputs) - 1):
+        if int(transaction.inputs[x][0], 16) > int(transaction.inputs[x + 1][0], 16):
+            return False, "inputs order invalid"
+        elif int(transaction.inputs[x][0], 16) == int(transaction.inputs[x + 1][0], 16):
+            if transaction.inputs[x][1] > transaction.inputs[x + 1][1]:
+                return False, "inputs order invalid"
+            elif transaction.inputs[x][1] == transaction.inputs[x + 1][1]:
+                if transaction.inputs[x][2] > transaction.inputs[x + 1][2]:
+                    return False, "input order invalid"
 
+    # transaction inputs are in order, validate that transaction outputs are in order\
+    for x in range(0, len(transaction.outputs) - 1):
+        if int(transaction.outputs[x][0], 16) > int(transaction.outputs[x][0]):
+            return False, "outputs order invalid"
 
-def calculate_difficulty(delta_t, prev_difficulty):
-    ratio = (1209600 / delta_t)
-    difficulty_addition = math.log(ratio, 2)
-    if difficulty_addition > 0:
-        return prev_difficulty + math.ceil(difficulty_addition)
-    elif difficulty_addition < 0 < prev_difficulty + math.floor(difficulty_addition):
-        return prev_difficulty + math.floor(difficulty_addition)
-    elif difficulty_addition < 0:
-        return 1
-    return prev_difficulty
+    # transaction outputs are in order, validate that input sources don't appear twice
+    for i, input1 in enumerate(transaction.inputs):
+        for j, input2 in enumerate(transaction.inputs):
+            if i != j:
+                if input1[0] == input2[0] and input1[1] == input2[1] and input1[2] == input1[2]:
+                    return False, "input source appears twice"
 
+    # input sources don't appear twice, validate that outputs keys don't appear twice
+    for i, output1 in enumerate(transaction.outputs):
+        for j, output2 in enumerate(transaction.outputs):
+            if i != j:
+                if output1[0] == output2[0]:
+                    return False, "output key appears twice"
 
-def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
-    value = "{}{}{}".format(prev_block_hash, merkle_root_hash, nonce)
-    return sha256(value.encode()).hexdigest()
-
-
-def calculate_merkle_root_hash(block_transactions):
-    block_transactions = block_transactions.copy()
-    for x in range(len(block_transactions)):
-        block_transactions[x] = block_transactions[x].sha256_hash()
-    if not len(block_transactions):
-        return "0" * 64
-    while len(block_transactions) != 1:
-        tmp_transactions = []
-        for x in range(0, len(block_transactions) - 1, 2):
-            hash1 = block_transactions[x]
-            hash2 = block_transactions[x + 1]
-            tmp_transactions.append(sha256("{}{}".format(hash1, hash2).encode()).hexdigest())
-        block_transactions = tmp_transactions
-    return block_transactions[0]
+    # output keys don't appear twice
+    return True, ""
 
 
 """
@@ -579,7 +606,7 @@ def handle_block_message(message, blockchain):
 
     # validate difficulty
     if block.block_number <= 2016:
-        if block.difficulty != get_config_data("default difficulty"):
+        if block.difficulty != config("default difficulty"):
             return None, -1
     else:
         maximum_block = blockchain.get_block_by_hash(block.prev_hash)
@@ -606,7 +633,7 @@ def handle_block_message(message, blockchain):
         return None, -1
     elif len(block.transactions[0].outputs) != 1:
         return None, -1
-    elif block.transactions[0].outputs[0][1] != get_config_data("block reward"):
+    elif block.transactions[0].outputs[0][1] != config("block reward"):
         return None, -1
 
     # validate transactions
@@ -743,13 +770,13 @@ def mine_new_block(blockchain):
     :return:
     :rtype:
     """
-    public_key = get_config_data("public key")
+    public_key = config("public key")
     block_number = blockchain.__len__() + 1
 
     difficulty = 0
-    difficulty_change_count = get_config_data("difficulty change count")
+    difficulty_change_count = config("difficulty change count")
     if block_number <= difficulty_change_count:
-        difficulty = get_config_data("default difficulty")
+        difficulty = config("default difficulty")
     else:
         ceiling = difficulty_change_count * math.floor((block_number - 1) / difficulty_change_count)
         floor = ceiling - difficulty_change_count + 1
@@ -818,13 +845,13 @@ def main():
     flags["created new block"] = False
     flags["exception"] = False
     flags["finished seeding"] = False
-    ip = get_config_data("ip address")
-    port = get_config_data("port")
-    seed_ip = get_config_data("seed address")
-    seed_port = get_config_data("seed port")
-    sql_address = get_config_data("sql address")
-    sql_user = get_config_data("sql user")
-    sql_password = get_config_data("sql password")
+    ip = config("ip address")
+    port = config("port")
+    seed_ip = config("seed address")
+    seed_port = config("seed port")
+    sql_address = config("sql address")
+    sql_user = config("sql user")
+    sql_password = config("sql password")
     blockchain = Blockchain(sql_address, sql_user, sql_password)
     server_socket = initialize_server(ip, port)
     logging.info("Server: Initiated [{}, {}]"
