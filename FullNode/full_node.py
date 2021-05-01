@@ -5,7 +5,6 @@ Python Version: 3
 Description:
 """
 import datetime
-# TODO: update protocol for bigger nonce
 # TODO: update protocol for csv synchronizing
 # TODO: add TypeError exceptions to all functions & methods that receive parameters
 import logging
@@ -22,8 +21,8 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
-from Dependencies import Blockchain
 from Dependencies import Block
+from Dependencies import Blockchain
 from Dependencies import Flags
 from Dependencies import SyncedArray
 from Dependencies import Transaction
@@ -277,7 +276,7 @@ def validate_transaction_format(transaction):
     for x in range(0, len(transaction.inputs) - 1):
         if int(transaction.inputs[x][0], 16) > int(transaction.inputs[x + 1][0], 16):
             return False, "inputs order invalid"
-        elif int(transaction.inputs[x][0], 16) == int(transaction.inputs[x+1][0], 16):
+        elif int(transaction.inputs[x][0], 16) == int(transaction.inputs[x + 1][0], 16):
             if transaction.inputs[x][1] > transaction.inputs[x + 1][1]:
                 return False, "inputs order invalid"
             elif transaction.inputs[x][1] == transaction.inputs[x + 1][1]:
@@ -432,7 +431,6 @@ def validate_transaction(transaction, blockchain, previous_block_hash=""):
         else:
             return validate_transaction_data_consensus(transaction, blockchain)
     return validate_transaction_format(transaction)
-
 
 
 def calculate_difficulty(delta_t, prev_difficulty):
@@ -591,7 +589,8 @@ def handle_block_message(message, blockchain):
         while minimum_block.block_number % 2016 != 0:
             minimum_block = blockchain.get_block_by_hash(minimum_block.prev_hash)
         delta_t = maximum_block.timestamp - minimum_block.timestamp
-        if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_previous_hash(minimum_block.self_hash)):
+        if block.difficulty != calculate_difficulty(delta_t,
+                                                    blockchain.get_block_by_previous_hash(minimum_block.self_hash)):
             return None, -1
 
     # validate nonce #
@@ -679,7 +678,7 @@ def handle_transaction_message(message, blockchain):
 
 
 def handle_error_message(message):
-    logging.debug("Message is an error message [{}]".format(message))
+    logging.debug("Message is an error message [{}]".format(message[1:]))
     return None, -1
 
 
@@ -737,18 +736,26 @@ def find_nonce(difficulty, prev_hash, merkle_hash):
 
 
 def mine_new_block(blockchain):
+    """
+
+    :param blockchain:
+    :type blockchain: Blockchain
+    :return:
+    :rtype:
+    """
     public_key = get_config_data("public key")
     block_number = blockchain.__len__() + 1
 
     difficulty = 0
-
-    if block_number <= 2016:
+    difficulty_change_count = get_config_data("difficulty change count")
+    if block_number <= difficulty_change_count:
         difficulty = get_config_data("default difficulty")
     else:
-        ceiling = 2016 * math.floor((block_number - 1) / 2016)
-        floor = ceiling - 2015
-        delta_t = blockchain.get_block_consensus_chain(ceiling)[2] - blockchain.get_block_consensus_chain(floor)[2]
-        difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
+        ceiling = difficulty_change_count * math.floor((block_number - 1) / difficulty_change_count)
+        floor = ceiling - difficulty_change_count + 1
+        delta_t = blockchain.get_block_consensus_chain(ceiling).timestamp() - blockchain.get_block_consensus_chain(
+            floor).timestamp
+        difficulty = calculate_difficulty(delta_t, blockchain.get_block_consensus_chain(ceiling - 1).difficulty)
 
     logging.debug("New block's difficulty is {}".format(difficulty))
 
@@ -757,16 +764,16 @@ def mine_new_block(blockchain):
     if block_number == 1:
         prev_hash = "0" * 64
     else:
-        prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__())[8]
+        prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__()).prev_hash
 
     block_transactions = []
     all_transactions = transactions.array
     for t in all_transactions:
-        invalid_transaction = False
+        overlap = False
         for t2 in block_transactions:
             if t.overlap(t2):
-                invalid_transaction = True
-        if not invalid_transaction:
+                overlap = True
+        if not overlap:
             block_transactions.append(t)
         if len(block_transactions) == 64:
             break
@@ -774,25 +781,23 @@ def mine_new_block(blockchain):
 
     source_transaction = Transaction(int(datetime.datetime.now().timestamp()), [], [(public_key, 10)])
 
-    final_block_transactions = [source_transaction]
-    for t in block_transactions:
-        final_block_transactions.append(t)
+    final_block_transactions = [source_transaction] + block_transactions
 
     merkle_root_hash = calculate_merkle_root_hash(final_block_transactions)
 
     nonce = find_nonce(difficulty, prev_hash, merkle_root_hash)
 
-    if nonce == -1:
-        return
+    if nonce != -1:
+        self_hash = calculate_hash(merkle_root_hash, prev_hash, nonce)
+        blockchain.append(block_number, int(datetime.datetime.now().timestamp()), difficulty, nonce, prev_hash,
+                          merkle_root_hash, block_transactions, self_hash)
 
-    blockchain.append(block_number, int(datetime.datetime.now().timestamp()), prev_hash, difficulty, nonce,
-                      merkle_root_hash, final_block_transactions, calculate_hash(merkle_root_hash, prev_hash, nonce))
-    block = blockchain.get_block_consensus_chain(blockchain.__len__())
+        block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
-    message = build_block_message(block)
-    thread_queue.put(("{}{}".format(len(message), message), 2))
-    flags["created new block"] = True
-    logging.info("Created new block")
+        message = block.network_format()
+        thread_queue.put(("{}{}".format(len(message), message), 2))
+        flags["created new block"] = True
+        logging.info("Created new block")
 
 
 """
@@ -1000,9 +1005,6 @@ def main():
             pass
         if flags["created new block"]:
             pass
-        if flags["finished seeding"]:
-            flags["finished seeding"] = False
-            seeding_thread.join()
 
 
 if __name__ == '__main__':
