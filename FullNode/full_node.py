@@ -425,6 +425,16 @@ def validate_transaction_data_consensus(transaction, blockchain):
     return True, ""
 
 
+def validate_transaction(transaction, blockchain, previous_block_hash=""):
+    if validate_transaction_format(transaction)[0]:
+        if previous_block_hash:
+            return validate_transaction_data(transaction, blockchain, previous_block_hash)
+        else:
+            return validate_transaction_data_consensus(transaction, blockchain)
+    return validate_transaction_format(transaction)
+
+
+
 def calculate_difficulty(delta_t, prev_difficulty):
     ratio = (1209600 / delta_t)
     difficulty_addition = math.log(ratio, 2)
@@ -459,7 +469,7 @@ def calculate_merkle_root_hash(block_transactions):
 
 
 """
-Message Builder Functions
+Build Message Functions
 -------------------------
 """
 
@@ -479,9 +489,8 @@ def build_error_message(error_message):
 
 
 """
-Network Protocol Functions
+Handle Message Functions
 --------------------------
-
 """
 
 
@@ -496,7 +505,7 @@ def handle_peer_message(message):
     if len(message) < 3:
         logging.debug("Message is an invalid peer message")
         return None, -1
-    peer_count = int(message[1:3])
+    peer_count = int(message[1:3], 16)
     if len(message) < 3 + 8 * peer_count:
         logging.debug("Message is an invalid peer message")
         return None, -1
@@ -585,82 +594,57 @@ def handle_block_message(message, blockchain):
         if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_previous_hash(minimum_block.self_hash)):
             return None, -1
 
-    # validate nonce # TODO: here
-    maximum = 2 ** (256 - block_difficulty)
-    b_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
+    # validate nonce #
+    maximum = 2 ** (256 - block.difficulty)
+    b_hash = calculate_hash(block.merkle_root_hash, block.prev_hash, block.nonce)
     int_hash = int(b_hash, 16)
 
     if int_hash > maximum:
         return None, -1
-        pass
 
     # validate first transaction
-    transaction_message = message[155:]
-    first_transaction_length = transaction_message[:5]
-    first_transaction = transaction_message[5:5 + first_transaction_length]
-    try:
-        first_transaction = Transaction.from_network_format(first_transaction)
-    except ValueError:
+    if len(block.transactions[0].inputs):
         return None, -1
-    else:
-        if len(first_transaction.inputs):
-            return None, -1
-        elif len(first_transaction.outputs) != 1:
-            return None, -1
-        elif first_transaction.outputs[0][1] != 10:
-            return None, -1
+    elif len(block.transactions[0].outputs) != 1:
+        return None, -1
+    elif block.transactions[0].outputs[0][1] != get_config_data("block reward"):
+        return None, -1
 
-    transaction_message = transaction_message[5 + first_transaction_length:]
-
-    block_transactions = []
-    for x in transaction_count - 1:
-        length = transaction_message[:5]
-        transaction = transaction_message[5: 5 + length]
-        try:
-            transaction = Transaction.from_network_format(transaction)
-        except ValueError:
+    # validate transactions
+    for transaction in block.transactions[1:]:
+        if not validate_transaction(transaction, blockchain, block.prev_hash)[0]:
             return None, -1
-        else:
-            block_transactions.append(transaction)
-
-    for transaction in block_transactions:
-        if not validate_transaction(transaction, blockchain, prev_block_hash=previous_block_hash):
-            return None, -1
-
-    block_transactions = [first_transaction] + block_transactions
 
     # validate merkle root hash
-    transaction_hash = calculate_merkle_root_hash(block_transactions)
+    transaction_hash = calculate_merkle_root_hash(block.transactions)
 
-    if merkle_root_hash != transaction_hash:
+    if block.merkle_root_hash != transaction_hash:
         return None, -1
 
     # validate transactions are in order
-    for t in range(1, len(block_transactions) - 1):
-        if block_transactions[t] < block_transactions[t + 1]:
+    for i in range(1, len(block.transactions) - 1):
+        if block.transactions[i] < block.transactions[i + 1]:
             return None, -1
 
     # check for overlaps
-    for t1 in range(1, len(block_transactions)):
-        for t2 in range(1, len(block_transactions)):
+    for t1 in range(1, len(block.transactions)):
+        for t2 in range(1, len(block.transactions)):
             if not t1 == t2:
-                if block_transactions[t1].overlap(block_transactions[t2]):
+                if block.transactions[t1].overlap(block.transactions[t2]):
                     return None, -1
 
     # append to database
-    self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
-    blockchain.append(block_number, posix_time, previous_block_hash, block_difficulty, nonce, merkle_root_hash,
-                      block_transactions, self_hash)
+    blockchain.append_block(block)
 
     # delete blocks if consensus long enough
-    if blockchain.get_block_consensus_chain(blockchain.__len__())[8] == self_hash:
+    if blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash == block.self_hash:
         # block is in consensus
-        for block in blockchain.__getitem__(block_number - 2):
-            if block[8] != blockchain.get_block_consensus_chain(block_number - 2)[8]:
-                blockchain.delete(block[8])
+        for block2 in blockchain.__getitem__(block.block_number - 2):
+            if block2.self_hash != blockchain.get_block_consensus_chain(block.block_number - 2).self_hash:
+                blockchain.delete(block2.self_hash)
 
     # raise flag if appropriate
-    if blockchain.get_block_consensus_chain(blockchain.__len__())[3] == previous_block_hash:
+    if blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash == block.self_hash:
         flags["received new block"] = True
         logging.info("Received new block")
 
@@ -671,7 +655,7 @@ def handle_block_message(message, blockchain):
 
     # return message
     # TODO: return alternative message for futuristic block
-    return "{}{}".format(len(message), message), 2
+    return "{}{}".format(len(block.network_format()), block.network_format())
 
 
 def handle_transaction_message(message, blockchain):
