@@ -8,7 +8,7 @@ import os
 
 from mysql import connector
 
-from Dependencies import Block
+from Dependencies.Block import Block
 
 
 class Blockchain:
@@ -295,7 +295,6 @@ class Blockchain:
 
 
 def main():
-    Blockchain().export("C:\\Users\\Orens\\Desktop", 10, 20)
     pass
 
 

@@ -76,6 +76,10 @@ def config(key, directory="Dependencies\\config.txt"):
     :raises: FileNotFoundError: configuration file not found at directory
     :raises: TypeError: unpickled object is not a dictionary
     """
+    if not isinstance(key, str):
+        raise TypeError("config: expected key to be of type str")
+    if not isinstance(directory, str):
+        raise TypeError("config: expected directory to be of type str")
     try:
         with open(directory, "rb") as file:
             configuration = pickle.load(file)
@@ -98,6 +102,11 @@ def initialize_client(ip, port):
     :return: client socket object
     :rtype: socket.socket
     """
+    if not isinstance(ip, str):
+        raise TypeError("initialize_client: expected ip to be of type str")
+    if not isinstance(port, int):
+        raise TypeError("initialize_client: expected port to be of type int")
+
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
@@ -105,7 +114,7 @@ def initialize_client(ip, port):
         logging.info("[{}, {}]: Connected to node"
                      .format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
 
-    except ConnectionRefusedError:
+    except (ConnectionRefusedError, socket.gaierror):
         logging.info("[{}, {}]: Connection attempt refused"
                      .format(ip, port))
 
@@ -121,6 +130,10 @@ def initialize_clients(addresses, port):
     :param port: tcp port to initialize client sockets to
     :type port: int
     """
+    if not isinstance(addresses, list):
+        raise TypeError("initialize_clients: expected addresses to be of type list")
+    if not isinstance(port, int):
+        raise TypeError("initialize_clients: expected port to be of type int")
     threads = []
     for i, address in enumerate(addresses):
         if address != config("ip_address"):
@@ -146,6 +159,10 @@ def initialize_server(ip, port):
     :return: server socket object
     :rtype: socket.socket
     """
+    if not isinstance(ip, str):
+        raise TypeError("initialize_server: expected ip to be of type str")
+    if not isinstance(port, int):
+        raise TypeError("initialize_server: expected port to be of type int")
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setblocking(False)
@@ -172,18 +189,29 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
     :keyword delay: seconds of delay between attempts to connect to DNS seeding server
     :keyword type delay: int
     """
+    if not isinstance(dns_ip, str):
+        raise TypeError("seed_clients: expected dns_ip to be of type str")
+    if not isinstance(dns_port, int):
+        raise TypeError("seed_clients: expected dns_port to be of type int")
+    if not isinstance(peer_port, int):
+        raise TypeError("seed_clients: expected peer_port to be of type int")
+
     if kwargs.get("attempts"):
+        if not isinstance(kwargs.get("attempts"), int):
+            raise TypeError("seed_clients: expected attempts to be of type int")
         attempts = kwargs.get("attempts")
     else:
         attempts = 5
 
     if kwargs.get("delay"):
+        if not isinstance(kwargs.get("delay"), int):
+            raise TypeError("seed_clients: expected delay to be of type int")
         delay = kwargs.get("delay")
     else:
         delay = 5
 
     peer_addresses = []
-
+    seed_client = ""
     for x in range(attempts):
         try:
             seed_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -193,6 +221,7 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
             if x == attempts - 1:
                 logging.info("Seeding server did not accept connection")
                 return
+
         else:
             break
 
@@ -456,7 +485,7 @@ def validate_transaction_format(transaction):
     :param transaction: transaction to validate
     :type transaction: Transaction
     :return: True if the transaction is valid, False if else
-    :rtype: bool
+    :rtype: tuple
     """
     # validate that transaction inputs are in order
     for x in range(0, len(transaction.inputs) - 1):
@@ -549,6 +578,15 @@ def handle_message(message, blockchain):
 
 
 def handle_message_block(message, blockchain):
+    """
+
+    :param message:
+    :type message:
+    :param blockchain:
+    :type blockchain: Blockchain
+    :return:
+    :rtype:
+    """
     try:
         block = Block.from_network_format(message)
     except ValueError:
@@ -585,8 +623,8 @@ def handle_message_block(message, blockchain):
         while minimum_block.block_number % 2016 != 0:
             minimum_block = blockchain.get_block_by_hash(minimum_block.prev_hash)
         delta_t = maximum_block.timestamp - minimum_block.timestamp
-        if block.difficulty != calculate_difficulty(delta_t,
-                                                    blockchain.get_block_by_previous_hash(minimum_block.self_hash)):
+        if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_previous_hash(
+                maximum_block.prev_hash).difficulty):
             return None, -1
 
     # validate nonce #
@@ -660,7 +698,7 @@ def handle_message_block_request(message, blockchain):
     else:
         block_number = int(message[1:7], 16)
         previous_block_hash = message[7:]
-        block = ""
+
         if block_number == 0 and previous_block_hash.replace("0", ""):
             # message in incorrect format
             logging.debug("Message is an invalid block request")
@@ -685,7 +723,7 @@ def handle_message_blocks(message, blockchain):
     message = message[7:]
     for i in range(block_count):
         block_size = message[:5]
-        handle_message_block(message[5: 5 + block_size])
+        handle_message_block(message[5: 5 + block_size], blockchain)
         message = message[5 + block_size:]
 
 
@@ -805,7 +843,6 @@ def mine_new_block(blockchain):
     public_key = config("public key")
     block_number = blockchain.__len__() + 1
 
-    difficulty = 0
     difficulty_change_count = config("difficulty change count")
     if block_number <= difficulty_change_count:
         difficulty = config("default difficulty")
@@ -817,8 +854,6 @@ def mine_new_block(blockchain):
         difficulty = calculate_difficulty(delta_t, blockchain.get_block_consensus_chain(ceiling - 1).difficulty)
 
     logging.debug("New block's difficulty is {}".format(difficulty))
-
-    prev_hash = ""
 
     if block_number == 1:
         prev_hash = "0" * 64
@@ -838,7 +873,8 @@ def mine_new_block(blockchain):
             break
     block_transactions.sort(key=Transaction.sort_key, reverse=True)
 
-    source_transaction = Transaction(int(datetime.datetime.now().timestamp()), [], [(public_key, config("block reward"))])
+    source_transaction = Transaction(int(datetime.datetime.now().timestamp()), [],
+                                     [(public_key, config("block reward"))])
 
     final_block_transactions = [source_transaction] + block_transactions
 
@@ -849,7 +885,7 @@ def mine_new_block(blockchain):
     if nonce != -1:
         self_hash = calculate_hash(merkle_root_hash, prev_hash, nonce)
         blockchain.append(block_number, int(datetime.datetime.now().timestamp()), difficulty, nonce, prev_hash,
-                          merkle_root_hash, block_transactions, self_hash)
+                          merkle_root_hash, final_block_transactions, self_hash)
 
         block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
@@ -869,7 +905,6 @@ def main():
     global thread_queue
     global flags
     global inputs
-    global outputs
 
     threading.current_thread().name = "MainNodeThread"
 
