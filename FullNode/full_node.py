@@ -838,7 +838,7 @@ def mine_new_block(blockchain):
             break
     block_transactions.sort(key=Transaction.sort_key, reverse=True)
 
-    source_transaction = Transaction(int(datetime.datetime.now().timestamp()), [], [(public_key, 10)])
+    source_transaction = Transaction(int(datetime.datetime.now().timestamp()), [], [(public_key, config("block reward"))])
 
     final_block_transactions = [source_transaction] + block_transactions
 
