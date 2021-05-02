@@ -5,7 +5,6 @@ Python Version: 3
 Description:
 """
 import datetime
-# TODO: update protocol for csv synchronizing
 # TODO: add TypeError exceptions to all functions & methods that receive parameters
 import logging
 import math
@@ -496,7 +495,21 @@ def validate_transaction_format(transaction):
 """
 Build Message Functions
 -------------------------
+
+build_error_message(error_message)
+
+build_peers_message(peers_list)
 """
+
+
+def build_get_blocks_message(first_block_number, last_block_number):
+    message = "g{}{}".format(hexify(first_block_number, 6), hexify(last_block_number, 6))
+    return message
+
+
+def build_error_message(error_message):
+    message = "f{}".format(hexify_string(error_message))
+    return message
 
 
 def build_peers_message(peers_list):
@@ -508,83 +521,41 @@ def build_peers_message(peers_list):
     return message
 
 
-def build_error_message(error_message):
-    message = "f{}".format(hexify_string(error_message))
-    return message
-
-
 """
 Handle Message Functions
 --------------------------
 """
 
 
-def handle_peer_request_message():
-    logging.debug("Message is a peer request message")
-    reply = build_peers_message(inputs.array)
-    reply = "{}{}".format(hexify(len(reply), 5), reply)
-    return reply, 1
+def handle_message(message, blockchain):
+    message_handling_functions = dict(a=lambda: handle_message_peers_request(),
+                                      b=lambda: handle_message_peers(message),
+                                      c=lambda: handle_message_block_request(message, blockchain),
+                                      d=lambda: handle_message_block(message, blockchain),
+                                      e=lambda: handle_message_transaction(message, blockchain),
+                                      f=lambda: handle_message_error(message),
+                                      g=lambda: handle_message_blocks_request(message, blockchain),
+                                      h=lambda: handle_message_blocks(message, blockchain))
 
+    message_type = message[:1]
 
-def handle_peer_message(message):
-    if len(message) < 3:
-        logging.debug("Message is an invalid peer message")
-        return None, -1
-    peer_count = int(message[1:3], 16)
-    if len(message) < 3 + 8 * peer_count:
-        logging.debug("Message is an invalid peer message")
-        return None, -1
-    logging.debug("Message is a peer message")
-    message = message[3:]
-
-    addresses = []
-
-    for x in range(peer_count):
-        byte1 = int(message[:2], 16)
-        byte2 = int(message[2:4], 16)
-        byte3 = int(message[4:6], 16)
-        byte4 = int(message[6:8], 16)
-        address = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
-        addresses.append(address)
-        message = message[8:]
-    threading.Thread(name="Peer Seeding Thread", target=initialize_clients, args=(addresses, 8333,)).start()
-    return None, -1
-
-
-def handle_block_request_message(message, blockchain):
-    if len(message) != 71:
-        # message not in correct format
-        logging.debug("Message is an invalid block request")
-        return None, -1
+    if message_type not in message_handling_functions:
+        logging.debug("Message is invalid (unrecognized message type)")
+        reply = build_error_message("unrecognized message type")
+        reply = "{}{}".format(hexify(len(reply), 5), reply)
+        return reply, 1
     else:
-        block_number = int(message[1:7], 16)
-        previous_block_hash = message[7:]
-        block = ""
-        if block_number == 0 and previous_block_hash.replace("0", ""):
-            # message in incorrect format
-            logging.debug("Message is an invalid block request")
-            return None, -1
-        elif block_number == 0:
-            block = blockchain.get_block_consensus_chain(blockchain.__len__())
-        else:
-            # return requested block if have, else return nothing
-            block = blockchain.get_block_by_previous_hash(previous_block_hash)
-
-        if block:
-            reply = block.network_format()
-            logging.debug("Message is a block request")
-            return "{}{}".format(hexify(len(reply), 5), reply), 1
-        else:
-            logging.debug("Message is an invalid block request")
-            return None, -1
+        return message_handling_functions[message_type]()
 
 
-def handle_block_message(message, blockchain):
-    # TODO: update to match new protocol
-    # validate minimum length
+def handle_message_block(message, blockchain):
     try:
         block = Block.from_network_format(message)
     except ValueError:
+        return None, -1
+
+    # check if block number relevant
+    if block.block_number < blockchain.__len__() - 1:
         return None, -1
 
     # check if block already received
@@ -593,11 +564,9 @@ def handle_block_message(message, blockchain):
 
     # check if previous block exists
     previous_block = blockchain.get_block_by_hash(block.prev_hash)
-    if not previous_block:
-        return None, -1
-
-    # check if block number relevant
-    if block.block_number < blockchain.__len__() - 1:
+    if not previous_block and block.block_number > blockchain.__len__():
+        return build_get_blocks_message(blockchain.__len__(), block.block_number), 1
+    elif not previous_block:
         return None, -1
 
     # validate time created
@@ -680,11 +649,98 @@ def handle_block_message(message, blockchain):
             transactions.remove(t)
 
     # return message
-    # TODO: return alternative message for futuristic block
     return "{}{}".format(len(block.network_format()), block.network_format())
 
 
-def handle_transaction_message(message, blockchain):
+def handle_message_block_request(message, blockchain):
+    if len(message) != 71:
+        # message not in correct format
+        logging.debug("Message is an invalid block request")
+        return None, -1
+    else:
+        block_number = int(message[1:7], 16)
+        previous_block_hash = message[7:]
+        block = ""
+        if block_number == 0 and previous_block_hash.replace("0", ""):
+            # message in incorrect format
+            logging.debug("Message is an invalid block request")
+            return None, -1
+        elif block_number == 0:
+            block = blockchain.get_block_consensus_chain(blockchain.__len__())
+        else:
+            # return requested block if have, else return nothing
+            block = blockchain.get_block_by_previous_hash(previous_block_hash)
+
+        if block:
+            reply = block.network_format()
+            logging.debug("Message is a block request")
+            return "{}{}".format(hexify(len(reply), 5), reply), 1
+        else:
+            logging.debug("Message is an invalid block request")
+            return None, -1
+
+
+def handle_message_blocks(message, blockchain):
+    block_count = int(message[1:7], 16)
+    message = message[7:]
+    for i in range(block_count):
+        block_size = message[:5]
+        handle_message_block(message[5: 5 + block_size])
+        message = message[5 + block_size:]
+
+
+def handle_message_blocks_request(message, blockchain):
+    first_block = int(message[1:7], 16)
+    last_block = int(message[7:13], 16)
+
+    reply = "h{}".format(hexify(last_block - first_block + 1, 6))
+
+    for i in range(first_block, last_block + 1):
+        block = blockchain.get_block_consensus_chain(i)
+        if block:
+            reply += "{}{}".format(len(block.network_format()), block.network_format())
+
+    return reply, 1
+
+
+def handle_message_error(message):
+    logging.debug("Message is an error message [{}]".format(message[1:]))
+    return None, -1
+
+
+def handle_message_peers(message):
+    if len(message) < 3:
+        logging.debug("Message is an invalid peer message")
+        return None, -1
+    peer_count = int(message[1:3], 16)
+    if len(message) < 3 + 8 * peer_count:
+        logging.debug("Message is an invalid peer message")
+        return None, -1
+    logging.debug("Message is a peer message")
+    message = message[3:]
+
+    addresses = []
+
+    for x in range(peer_count):
+        byte1 = int(message[:2], 16)
+        byte2 = int(message[2:4], 16)
+        byte3 = int(message[4:6], 16)
+        byte4 = int(message[6:8], 16)
+        address = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
+        addresses.append(address)
+        message = message[8:]
+    threading.Thread(name="Peer Seeding Thread", target=initialize_clients, args=(addresses, 8333,)).start()
+    return None, -1
+
+
+def handle_message_peers_request():
+    logging.debug("Message is a peer request message")
+    reply = build_peers_message(inputs.array)
+    reply = "{}{}".format(hexify(len(reply), 5), reply)
+    return reply, 1
+
+
+def handle_message_transaction(message, blockchain):
     try:
         transaction = Transaction.from_network_format(message)
     except ValueError:
@@ -702,30 +758,6 @@ def handle_transaction_message(message, blockchain):
         else:
             logging.debug("Message is an invalid transaction message [{}]".format(msg_validity[1]))
             return None, -1
-
-
-def handle_error_message(message):
-    logging.debug("Message is an error message [{}]".format(message[1:]))
-    return None, -1
-
-
-def handle_message(message, blockchain):
-    message_handling_functions = dict(a=lambda: handle_peer_request_message(),
-                                      b=lambda: handle_peer_message(message),
-                                      c=lambda: handle_block_request_message(message, blockchain),
-                                      d=lambda: handle_block_message(message, blockchain),
-                                      e=lambda: handle_transaction_message(message, blockchain),
-                                      f=lambda: handle_error_message(message))
-
-    message_type = message[:1]
-
-    if message_type not in message_handling_functions:
-        logging.debug("Message is invalid (unrecognized message type)")
-        reply = build_error_message("unrecognized message type")
-        reply = "{}{}".format(hexify(len(reply), 5), reply)
-        return reply, 1
-    else:
-        return message_handling_functions[message_type]()
 
 
 """
@@ -863,95 +895,7 @@ def main():
     inputs.append(server_socket)
     message_queues = {}
 
-    synchronized = False
-    readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs, 1)
-    request_newest_block_message = hexify(71, 5) + "c" + "0" * 70
-
-    if not writable:
-        synchronized = True
-
-    for sock in writable:
-        sock.send(request_newest_block_message)
-
-    sync_message_queues = {}
-    target_block_number = 0
-    current_block_number = blockchain.__len__()
-
-    while inputs:
-        # TODO: set up loop for sync messages
-        readable, writable, exceptional = select.select(inputs.array, client_sockets.array, inputs.array +
-                                                        client_sockets.array, 0)
-
-        for sock in readable:
-            if sock is server_socket:
-                client_socket, address = server_socket.accept()
-                inputs.append(client_socket)
-
-                client_socket_exists = False
-
-                for other_sock in client_sockets:
-                    if other_sock.getpeername()[0] == address[0]:
-                        client_socket_exists = True
-                if not client_socket_exists:
-                    new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    new_socket.connect((address[0], port))
-                    client_sockets.append(new_socket)
-            else:
-                size = sock.recv(5).decode()
-                if size:
-                    message = sock.recv(int(size)).deocde()
-                    reply = handle_message(message)
-
-                    if reply[1] == -1:
-                        logging.debug("No reply")
-
-                    if reply[1] == 1:
-                        logging.debug("Replying to sender")
-                        if sock.getpeername()[0] not in message_queues:
-                            message_queues[sock.getpeername()[0]] = queue.SimpleQueue()
-                        message_queues[sock.getpeername()[0]].put(reply[0])
-
-                    elif reply[1] == 2:
-                        logging.debug("Sending reply to all nodes")
-
-                        for other_sock in client_sockets:
-                            if other_sock.getpeername()[0] not in message_queues:
-                                message_queues[other_sock.getpeername()[0]] = queue.SimpleQueue()
-                            message_queues[other_sock.getpeername()[0]].put(reply[0])
-                else:
-                    address = sock.getpeername()[0]
-                    sock.close()
-                    inputs.remove(sock)
-
-                    if address in message_queues:
-                        del message_queues[address]
-
-                    for other_sock in client_sockets:
-                        if other_sock.getpeername()[0] == address:
-                            other_sock.close()
-                            client_sockets.remove(other_sock)
-
-        for sock in writable:
-            address = sock.getpeername()[0]
-
-            if address in message_queues:
-                if not message_queues[address].empty():
-                    message = message_queues[address].get()
-                    sock.send(message.encode())
-
-        for sock in exceptional:
-            address = sock.getpeername()[0]
-            for other_sock in client_sockets:
-                if other_sock.getpeername()[0] == address:
-                    other_sock.close()
-                    client_sockets.remove(other_sock)
-            for other_sock in inputs:
-                if other_sock.getpeername()[0] == address:
-                    other_sock.close()
-                    inputs.remove(other_sock)
-
-            if address in message_queues:
-                del message_queues[address]
+    get_most_recent_block = "00047g0000000000000000000000000000000000000000000000000000000000000000000000"
 
     while inputs:
         readable, writable, exceptional = select.select(inputs.array, client_sockets.array, inputs.array +
@@ -971,11 +915,17 @@ def main():
                     new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     new_socket.connect((address[0], port))
                     client_sockets.append(new_socket)
+
+                    if address[0] not in message_queues:
+                        message_queues[address[0]] = queue.SimpleQueue()
+                    message_queues[address[0]].put(get_most_recent_block)
+
             else:
                 size = sock.recv(5).decode()
                 if size:
-                    message = sock.recv(int(size)).deocde()
-                    reply = handle_message(message)
+
+                    message = sock.recv(int(size, 16)).decode()
+                    reply = handle_message(message, blockchain)
 
                     if reply[1] == -1:
                         logging.debug("No reply")

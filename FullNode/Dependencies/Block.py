@@ -6,10 +6,15 @@ Description:
 """
 
 from Dependencies import Transaction
+from hashlib import sha256
 
 
 def hexify(number, length):
     pass
+
+def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
+    value = "{}{}{}".format(prev_block_hash, merkle_root_hash, nonce)
+    return sha256(value.encode()).hexdigest()
 
 
 class Block:
@@ -50,7 +55,8 @@ class Block:
             transaction = message[2:transaction_length + 2]
             block_transactions.append(transaction)
             message = message[transaction_length + 2:]
-        block = (block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash, transactions)
+        self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
+        block = (block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash, block_transactions)
         return Block(block)
 
 

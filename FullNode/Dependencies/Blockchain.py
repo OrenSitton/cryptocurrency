@@ -90,8 +90,8 @@ class Blockchain:
     def __getitem__(self, block_number, prev_hash=""):
         """
         return the block(s) at the requested number
-        :param index: number of the block(s) to return
-        :type index: int
+        :param block_number: number of the block(s) to return
+        :type block_number: int
         :return: requested block(s)
         :rtype: tuple
         :raises: IndexError: block number is not within range
@@ -191,7 +191,19 @@ class Blockchain:
         """
         self.cursor.execute("DELETE FROM Blocks WHERE self_hash={}".format(block_hash))
 
-    def export(self, directory):
+    def export(self, directory, first_block_number, last_block_number):
+        """
+
+        :param directory:
+        :type directory:
+        :param first_block_number:
+        :type first_block_number:
+        :param last_block_number:
+        :type last_block_number:
+        :return:
+        :rtype:
+        """
+        # TODO: fix to just export entire database, not certain blocks or consensus chain
         current_directory = os.getcwd()
         os.chdir(directory)
 
@@ -200,13 +212,15 @@ class Blockchain:
 
         with open('blockchain.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["id", "block_number", "time_created", "prev_hash", "difficulty", "nonce",
+            writer.writerow(["block_number", "time_created", "prev_hash", "difficulty", "nonce",
                              "merkle_root_hash", "transactions", "self_hash"])
-            for result in results:
-                result_array = []
-                for value in result:
-                    result_array.append(value)
-                writer.writerow(result_array)
+            for i in range(first_block_number, last_block_number + 1):
+                try:
+                    block = self[i]
+                    result_array = [block.block_number, block.timestamp, block.prev_hash, block.difficulty, block.nonce, block.merkle_root_hash, block.transactions.decode(), block.self_hash]
+                    writer.writerow(result_array)
+                except IndexError:
+                    pass
 
         os.chdir(current_directory)
 
@@ -281,7 +295,7 @@ class Blockchain:
 
 
 def main():
-    Blockchain()
+    Blockchain().export("C:\\Users\\Orens\\Desktop", 10, 20)
     pass
 
 
