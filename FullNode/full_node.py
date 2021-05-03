@@ -942,7 +942,9 @@ def mine_new_block(blockchain):
     """
     if not isinstance(blockchain, Blockchain):
         raise TypeError("mine_new_block: expected blockchain to be of type Blockchain")
+
     public_key = config("public key")
+
     block_number = blockchain.__len__() + 1
 
     difficulty_change_count = config("difficulty change count")
@@ -960,7 +962,7 @@ def mine_new_block(blockchain):
     if block_number == 1:
         prev_hash = "0" * 64
     else:
-        prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__()).prev_hash
+        prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash
 
     block_transactions = []
     all_transactions = transactions.array

@@ -91,7 +91,7 @@ class Blockchain:
                             "merkle_root_hash VARCHAR(64), transactions LONGBLOB, self_hash VARCHAR(64))")
 
         if self.__sizeof__() == 0:
-            self.append(0, 0, 0, 0, 0, "", [], "")
+            self.append(0, 0, 0, 0, "", "", [], "")
 
     def __getitem__(self, block_number, prev_hash=""):
         """
