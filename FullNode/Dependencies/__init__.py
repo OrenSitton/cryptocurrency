@@ -10,6 +10,4 @@ from Dependencies.SyncedArray import SyncedArray
 from Dependencies.Transaction import Transaction
 from Dependencies.Flags import Flags
 
-
-def hexify():
-    pass
+from Dependencies.methods import *

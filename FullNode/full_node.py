@@ -25,6 +25,7 @@ from Dependencies import Blockchain
 from Dependencies import Flags
 from Dependencies import SyncedArray
 from Dependencies import Transaction
+from Dependencies import calculate_hash
 from Dependencies import hexify
 from Dependencies import hexify_string
 
@@ -272,29 +273,6 @@ def calculate_difficulty(delta_t, prev_difficulty):
     elif difficulty_addition < 0:
         return 1
     return prev_difficulty
-
-
-def calculate_hash(previous_block_hash, merkle_tree_root_hash, nonce):
-    """
-    calculates the hash of a block based on its merkle tree root hash, previous block hash and nonce
-    :param previous_block_hash: hash of the previous block in the blockchain
-    :type previous_block_hash: str
-    :param merkle_tree_root_hash: hash of the root of the merkle tree of the block's transactions
-    :type merkle_tree_root_hash: str
-    :param nonce: nonce of the block
-    :type nonce: int
-    :return: hash of the block
-    :rtype: str
-    """
-
-    if not isinstance(previous_block_hash, str):
-        raise TypeError("calculate_hash: expected prev_block_hash to be of type str")
-    if not isinstance(merkle_tree_root_hash, str):
-        raise TypeError("calculate_hash: expected merkle_root_hash to be of type str")
-    if not isinstance(nonce, int):
-        raise TypeError("calculate_hash: expected nonce to be of type int")
-    value = "{}{}{}".format(previous_block_hash, merkle_tree_root_hash, nonce)
-    return sha256(value.encode()).hexdigest()
 
 
 def calculate_merkle_root_hash(block_transactions):
@@ -661,7 +639,7 @@ def handle_message_block(message, blockchain):
         while minimum_block.block_number % 2016 != 0:
             minimum_block = blockchain.get_block_by_hash(minimum_block.prev_hash)
         delta_t = maximum_block.timestamp - minimum_block.timestamp
-        if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_previous_hash(
+        if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_hash(
                 maximum_block.prev_hash).difficulty):
             return None, -1
 
@@ -758,7 +736,7 @@ def handle_message_block_request(message, blockchain):
             block = blockchain.get_block_consensus_chain(blockchain.__len__())
         else:
             # return requested block if have, else return nothing
-            block = blockchain.get_block_by_previous_hash(previous_block_hash)
+            block = blockchain.__getitem__(block_number, prev_hash=previous_block_hash)
 
         if block:
             reply = block.network_format()
