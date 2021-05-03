@@ -5,6 +5,7 @@ Python Version: 3
 """
 from datetime import datetime
 from hashlib import sha256
+from Dependencies.methods import hexify
 
 
 class Transaction:
@@ -54,6 +55,11 @@ class Transaction:
         if not (isinstance(timestamp, int) or isinstance(timestamp, datetime)):
             raise TypeError("Transaction.__init__: expected timestamp to be of type int "
                             "or datetime")
+        if not isinstance(inputs, list):
+            raise TypeError("Transaction.__init__: expected inputs to be of type list")
+        if not isinstance(outputs, list):
+            raise TypeError("Transaction.__init__: expected outputs to be of type list")
+
         for inp in inputs:
             if len(inp) != 4:
                 raise ValueError("Transaction.__init__: expected input tuples to be of a length of 4")
@@ -84,6 +90,9 @@ class Transaction:
         return string_representation[:-1]
 
     def __gt__(self, other):
+        if not isinstance(other, Transaction):
+            raise NotImplementedError
+
         if int(self.inputs[0], 16) < int(other.inputs[0], 16):
             return False
         elif self.inputs[1] < other.inputs[1]:
@@ -93,6 +102,9 @@ class Transaction:
         return True
 
     def __lt__(self, other):
+        if not isinstance(other, Transaction):
+            raise NotImplementedError
+
         if int(self.inputs[0], 16) > int(other.inputs[0], 16):
             return False
         elif self.inputs[1] > other.inputs[1]:
@@ -102,6 +114,9 @@ class Transaction:
         return True
 
     def overlap(self, other):
+        if not isinstance(other, Transaction):
+            raise TypeError("Transaction.overlap: expected other to be of type Transaction")
+
         for inp in self.inputs:
             for other_inp in other.inputs:
                 if inp[0] == other_inp[0] and inp[1] == other_inp[1] and inp[2] == other_inp[2]:
@@ -179,6 +194,9 @@ class Transaction:
         :return: Transaction object
         :rtype: Transaction
         """
+        if not isinstance(hex_transaction, str):
+            raise TypeError("Transaction.from_network_format: expected hex_transaction to be of type str")
+
         if len(hex_transaction) < 11 or hex_transaction[0] != 'e':
             raise ValueError("Transaction.from_network_format(hex_transaction): hexadecimal value does not represent "
                              "valid transaction")
@@ -216,38 +234,17 @@ class Transaction:
         return Transaction(datetime.fromtimestamp(time_created), inputs, outputs)
 
     @staticmethod
-    def hexify(number, length):
-        """
-        calculates hexadecimal value of the number, with prefix zeroes to match length
-        :param number: number to calculate hex value for, in base 10
-        :type number: int
-        :param length: requested length of hexadecimal value
-        :type length: int
-        :return: hexadecimal value of the number, with prefix zeroes
-        :rtype: str
-        :raise Exception: ValueError (message size is larger than length)
-        """
-        if not isinstance(number, int):
-            raise TypeError("Transaction.hexify(number, length): expected number to be of type int")
-        if not isinstance(length, int):
-            raise TypeError("Transaction.hexify(number, length): expected length to be of type int")
-        if number < 0:
-            raise ValueError("Transaction.hexify(number, length): expected non-negative value for number, received {} "
-                             "instead".format(number))
-        if length < 0:
-            raise ValueError("Transaction.hexify(number, length): expected non-negative value for length, received {} "
-                             "instead".format(length))
-
-        hex_base = hex(number)[2:]
-
-        if len(hex_base) <= length:
-            hex_base = (length - len(hex_base)) * "0" + hex_base
-            return hex_base
-        else:
-            raise ValueError("Transaction.hexify(number, length): message size is larger than length")
-
-    @staticmethod
     def sort_key(transaction):
+        """
+        sorting key for transactions (for use with the sort() method)
+        :param transaction: transaction to apply key for
+        :type transaction: Transaction
+        :return: key value
+        :rtype: int
+        """
+        if not isinstance(transaction, Transaction):
+            raise TypeError("Transaction.sort_key: expected transaction to be of type Transaction")
+        
         key = "{}{}{}".format(str(int(transaction.inputs[0][0])), transaction.inputs[0][1], transaction.inputs[0][2])
         return int(key)
 
