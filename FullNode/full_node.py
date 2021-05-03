@@ -38,7 +38,7 @@ client_sockets : SyncedArray
     list of current client sockets connected to other node's server sockets
 transactions : SyncedArray
     list of pending transactions
-thread_queue : queue.SimpleQueue
+thread_queue : queue.Queue
     queue to load return value from mining thread
 flags : Flags
     flags object to coordinate between threads
@@ -47,8 +47,9 @@ flags : Flags
 inputs = SyncedArray(name="input list")
 client_sockets = SyncedArray(name="client List")
 transactions = SyncedArray(name="transaction List")
-thread_queue = queue.SimpleQueue()
+thread_queue = queue.Queue()
 flags = Flags()
+
 
 """
 Initiation Functions
@@ -311,8 +312,8 @@ def validate_transaction(transaction, blockchain, previous_block_hash=""):
     :type transaction: Transaction
     :param blockchain: blockchain to use to check transaction's validity
     :type blockchain: Blockchain
-    :param previous_block_hash: hash of the previous block (for transactions we want to validate not in the consensus chain)
-                                default="" for consensus chain transactions
+    :param previous_block_hash: hash of the previous block (for transactions we
+                                want to validate not in the consensus chain) default="" for consensus chain transactions
     :type previous_block_hash: str
     :return: True if the transaction is valid, False if not
     :rtype: tuple
@@ -683,7 +684,8 @@ def handle_message_block(message, blockchain):
                     return None, -1
 
     # append to database
-    blockchain.append_block(block)
+    blockchain.append(block.block_number, block.timestamp, block.difficulty, block.nonce, block.prev_hash,
+                      block.merkle_root_hash, block.transactions, block.self_hash)
 
     # delete blocks if consensus long enough
     if blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash == block.self_hash:
@@ -990,7 +992,7 @@ def mine_new_block(blockchain):
         block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
         message = block.network_format()
-        thread_queue.put(("{}{}".format(len(message), message), 2))
+        thread_queue.put("{}{}".format(len(message), message))
         flags["created new block"] = True
         logging.info("Created new block")
 
@@ -1011,6 +1013,7 @@ def main():
     flags["created new block"] = False
     flags["exception"] = False
     flags["finished seeding"] = False
+
     ip = config("ip address")
     port = config("port")
     seed_ip = config("seed address")
@@ -1018,14 +1021,19 @@ def main():
     sql_address = config("sql address")
     sql_user = config("sql user")
     sql_password = config("sql password")
+
     blockchain = Blockchain(sql_address, sql_user, sql_password)
+
     server_socket = initialize_server(ip, port)
     logging.info("Server: Initiated [{}, {}]"
                  .format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
+
     seeding_thread = threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,))
     seeding_thread.start()
+
     mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
     mining_thread.start()
+
     inputs.append(server_socket)
     message_queues = {}
 
@@ -1033,7 +1041,7 @@ def main():
 
     while inputs:
         readable, writable, exceptional = select.select(inputs.array, client_sockets.array, inputs.array +
-                                                        client_sockets.array, 0)
+                                                        client_sockets.array, 1)
 
         for sock in readable:
             if sock is server_socket:
@@ -1051,7 +1059,7 @@ def main():
                     client_sockets.append(new_socket)
 
                     if address[0] not in message_queues:
-                        message_queues[address[0]] = queue.SimpleQueue()
+                        message_queues[address[0]] = queue.Queue()
                     message_queues[address[0]].put(get_most_recent_block)
 
             else:
@@ -1067,7 +1075,7 @@ def main():
                     if reply[1] == 1:
                         logging.debug("Replying to sender")
                         if sock.getpeername()[0] not in message_queues:
-                            message_queues[sock.getpeername()[0]] = queue.SimpleQueue()
+                            message_queues[sock.getpeername()[0]] = queue.Queue()
                         message_queues[sock.getpeername()[0]].put(reply[0])
 
                     elif reply[1] == 2:
@@ -1075,7 +1083,7 @@ def main():
 
                         for other_sock in client_sockets:
                             if other_sock.getpeername()[0] not in message_queues:
-                                message_queues[other_sock.getpeername()[0]] = queue.SimpleQueue()
+                                message_queues[other_sock.getpeername()[0]] = queue.Queue()
                             message_queues[other_sock.getpeername()[0]].put(reply[0])
                 else:
                     address = sock.getpeername()[0]
@@ -1114,7 +1122,27 @@ def main():
 
         if flags["received new block"]:
             pass
+
         if flags["created new block"]:
+            flags["created new block"] = False
+
+            mining_thread.join()
+            if not thread_queue.empty():
+                message = thread_queue.get()
+                logging.debug("Sending new block to all nodes")
+
+                for sock in client_sockets:
+                    if sock.getpeername()[0] not in message_queues:
+                        message_queues[sock.getpeername()[0]] = queue.Queue()
+                    message_queues[sock.getpeername()[0]].put(message)
+
+            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
+            mining_thread.start()
+
+        if flags["finished seeding"]:
+            pass
+
+        if flags["exception"]:
             pass
 
 

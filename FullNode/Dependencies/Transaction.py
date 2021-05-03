@@ -131,25 +131,25 @@ class Transaction:
         """
         message = ""
 
-        time_created = Transaction.hexify(int(self.timestamp.timestamp()), 8)
+        time_created = hexify(int(self.timestamp.timestamp()), 8)
 
-        inputs_amount = Transaction.hexify(len(self.inputs), 1)
+        inputs_amount = hexify(len(self.inputs), 1)
 
-        outputs_amount = Transaction.hexify(len(self.outputs), 1)
+        outputs_amount = hexify(len(self.outputs), 1)
 
         message = "e{}{}{}".format(time_created, inputs_amount, outputs_amount)
 
         for inp in self.inputs:
             input_key = inp[0]
-            input_block_number = Transaction.hexify(inp[1], 6)
-            input_transaction_number = Transaction.hexify(inp[2], 2)
+            input_block_number = hexify(inp[1], 6)
+            input_transaction_number = hexify(inp[2], 2)
             signature = inp[3]
 
             message += input_key + input_block_number + input_transaction_number + signature
 
         for output in self.outputs:
             output_address = output[0]
-            amount = Transaction.hexify(output[1], 4)
+            amount = hexify(output[1], 4)
 
             message += output_address + amount
         message = message.replace(" ", "")
@@ -168,12 +168,12 @@ class Transaction:
 
         for inp in self.inputs:
             input_key = inp[0]
-            input_block_number = Transaction.hexify(inp[1], 6)
-            input_transaction_number = Transaction.hexify(inp[2], 2)
+            input_block_number = hexify(inp[1], 6)
+            input_transaction_number = hexify(inp[2], 2)
             message += input_key + input_block_number + input_transaction_number
         for output in self.outputs:
             output_address = output[0]
-            amount = Transaction.hexify(output[1], 4)
+            amount = hexify(output[1], 4)
             message += output_address + amount
         return message
 

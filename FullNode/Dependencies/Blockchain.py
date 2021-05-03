@@ -7,6 +7,7 @@ Python Version: 3
 from mysql import connector
 
 from Dependencies.Block import Block
+from Dependencies.Transaction import Transaction
 
 
 class Blockchain:
