@@ -51,18 +51,6 @@ flags = Flags()
 
 """
 Initiation Functions
---------------------
-
-config(key, directory="Dependencies\\config.txt")
-
-initialize_client(ip, port)
-
-initialize_clients(addresses, port)
-    
-initialize_server(ip, port)
-
-seed_clients(dns_ip, dns_port, peer_port, **kwargs)
-
 """
 
 
@@ -258,19 +246,6 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
 
 """
 Calculation Functions
----------------------
-
-calculate_difficulty(delta_t, prev_difficulty)
-
-calculate_hash(merkle_root_hash, prev_block_hash, nonce)
-
-validate_transaction(transaction, blockchain, previous_block_hash="")
-
-validate_transaction_data(transaction, blockchain, previous_block_hash)
-
-validate_transaction_consensus(transaction, blockchain)
-
-validate_transaction_format(transaction)
 """
 
 
@@ -541,11 +516,6 @@ def validate_transaction_format(transaction):
 
 """
 Build Message Functions
--------------------------
-
-build_error_message(error_message)
-
-build_peers_message(peers_list)
 """
 
 
@@ -604,7 +574,6 @@ def build_peers_message(peers_list):
 
 """
 Handle Message Functions
---------------------------
 """
 
 
@@ -944,37 +913,36 @@ def handle_message_transaction(message, blockchain):
 
 """
 Block Miner Function
---------------------
 """
 
 
-def find_nonce(difficulty, prev_hash, merkle_hash):
+def find_nonce(difficulty, previous_hash, merkle_tree_root_hash):
     """
     finds nonce for new block
     :param difficulty: difficulty of block to find nonce for
     :type difficulty: int
-    :param prev_hash: hash of the previous block
-    :type prev_hash: str
-    :param merkle_hash: hash of the block's transactions merkle tree root
-    :type merkle_hash: str
+    :param previous_hash: hash of the previous block
+    :type previous_hash: str
+    :param merkle_tree_root_hash: hash of the block's transactions merkle tree root
+    :type merkle_tree_root_hash: str
     :return: nonce of the block
     :rtype: int
     """
     if not isinstance(difficulty, int):
         raise TypeError("find_nonce: expected nonce to be of type int")
-    if not isinstance(prev_hash, str):
+    if not isinstance(previous_hash, str):
         raise TypeError("find_nonce: expected prev_hash to be of type str")
-    if not isinstance(merkle_hash, str):
+    if not isinstance(merkle_tree_root_hash, str):
         raise TypeError("find_nonce: expected merkle_hash to be of type str")
 
     nonce = 0
 
-    block_hash = calculate_hash(prev_hash, merkle_hash, nonce)
+    block_hash = calculate_hash(previous_hash, merkle_tree_root_hash, nonce)
     bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
 
     while bin_hash[:difficulty] != "0" * difficulty:
         nonce += 1
-        block_hash = calculate_hash(prev_hash, merkle_hash, nonce)
+        block_hash = calculate_hash(previous_hash, merkle_tree_root_hash, nonce)
         bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
 
         if flags["received new block"]:
@@ -985,9 +953,12 @@ def find_nonce(difficulty, prev_hash, merkle_hash):
 
 def mine_new_block(blockchain):
     """
-    mining thread target function, creates new block in consensus chain :param blockchain: blockchain to append new
-    block to, and to get datd from :type blockchain: Blockchain :return: pushes block message into thread_queue if
-    new block found, otherwise doesn't push anything into thread_queue
+    mining thread target function, creates new block in consensus chain
+    :param blockchain: blockchain to append new block to, and to get
+    data from
+    :type blockchain: Blockchain
+    :return: pushes block message into thread_queue if new block found, otherwise doesn't push anything into
+    thread_queue
     """
     if not isinstance(blockchain, Blockchain):
         raise TypeError("mine_new_block: expected blockchain to be of type Blockchain")
@@ -1048,7 +1019,6 @@ def mine_new_block(blockchain):
 
 """
 Main Function
--------------
 """
 
 
