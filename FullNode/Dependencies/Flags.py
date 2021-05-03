@@ -35,12 +35,8 @@ class Flags:
         returns the dictionary as a string
     acquire_edit_permissions(acquired=0)
         acquires the write lock and read locks
-    acquire_read_permissions()
-        acquires read lock
     release_edit_permissions(released=0)
         releases the write and read locks
-    release_read_permissions()
-        releases read lock
     """
 
     def __init__(self, name="flags", max_readers=2):
