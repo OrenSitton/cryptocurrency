@@ -3,7 +3,6 @@ Author: Oren Sitton
 File: SyncedDictionary.py
 Python Version: 3
 """
-import logging
 from threading import Semaphore, Lock
 
 
@@ -52,6 +51,11 @@ class Flags:
         :param max_readers: maximum amount of simultaneous readers
         :type max_readers: int
         """
+        if not isinstance(name, str):
+            raise TypeError("Flags.__init__: expected name to be of type str")
+        if not isinstance(max_readers, int):
+            raise TypeError("Flags.__init__: expected max_readers to be of type int")
+
         self.__flags = {}
         self.name = name
         self.max_readers = max_readers
@@ -66,9 +70,9 @@ class Flags:
         :return: flags[flag]
         :rtype: Any
         """
-        self.acquire_read_permissions()
+        self.semaphore_lock.acquire()
         item = self.__flags.get(flag)
-        self.release_read_permissions()
+        self.semaphore_lock.release()
         return item
 
     def __setitem__(self, flag, value):
@@ -82,37 +86,34 @@ class Flags:
         :return: string representation of the flags
         :rtype: str
         """
-        self.acquire_read_permissions()
+        self.semaphore_lock.acquire()
         string_representation = "Flag : Value\n------------\n\n"
         for key, value in self.__flags.items():
             string_representation += "{} : {}\n".format(key, value)
-        self.release_read_permissions()
+        self.semaphore_lock.release()
 
         return string_representation
 
     def acquire_edit_permissions(self, acquired=0):
+        if not isinstance(acquired, int):
+            raise TypeError("Flags.acquire_edit_permissions: expected acquired to be of type int")
+        if acquired > self.max_readers:
+            raise ValueError("Flags.acquire_edit_permission: expected acquired to be less than max_readers")
+
         for x in range(self.max_readers - acquired):
             self.semaphore_lock.acquire()
-        logging.debug("Acquired reading locks for {}".format(self.name))
-
         self.write_lock.acquire()
-        logging.debug("Acquired write lock for {}".format(self.name))
-
-    def acquire_read_permissions(self):
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired read lock for {}".format(self.name))
 
     def release_edit_permissions(self, released=0):
+        if not isinstance(released, int):
+            raise TypeError("Flags.release_edit_permissions: expected released to be of type int")
+        if released > self.max_readers:
+            raise ValueError("Flags.release_edit_permission: expected released to be less than max_readers")
+
         for x in range(self.max_readers - released):
             self.semaphore_lock.release()
-        logging.debug("Released reading locks for {}".format(self.name))
 
         self.write_lock.release()
-        logging.debug("Released writing locks for {}".format(self.name))
-
-    def release_read_permissions(self):
-        self.semaphore_lock.release()
-        logging.debug("Released read lock for {}".format(self.name))
 
 
 def main():
