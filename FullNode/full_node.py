@@ -5,7 +5,6 @@ Python Version: 3
 Description:
 """
 import datetime
-# TODO: add TypeError exceptions to all functions & methods that receive parameters
 import logging
 import math
 import pickle
@@ -49,7 +48,6 @@ client_sockets = SyncedArray(name="client List")
 transactions = SyncedArray(name="transaction List")
 thread_queue = queue.Queue()
 flags = Flags()
-
 
 """
 Initiation Functions
@@ -1027,6 +1025,9 @@ def main():
     blockchain = Blockchain(sql_address, sql_user, sql_password)
 
     server_socket = initialize_server(ip, port)
+    if not server_socket:
+        logging.critical("Could not initialize server socket. Terminating...")
+        return
     logging.info("Server: Initiated [{}, {}]"
                  .format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
 
