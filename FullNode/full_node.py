@@ -25,6 +25,8 @@ from Dependencies import Blockchain
 from Dependencies import Flags
 from Dependencies import SyncedArray
 from Dependencies import Transaction
+from Dependencies import hexify
+from Dependencies import hexify_string
 
 """
 Global Variables
@@ -262,10 +264,6 @@ calculate_difficulty(delta_t, prev_difficulty)
 
 calculate_hash(merkle_root_hash, prev_block_hash, nonce)
 
-hexify(number, length)
-
-hexify_string(string)
-
 validate_transaction(transaction, blockchain, previous_block_hash="")
 
 validate_transaction_data(transaction, blockchain, previous_block_hash)
@@ -277,6 +275,19 @@ validate_transaction_format(transaction)
 
 
 def calculate_difficulty(delta_t, prev_difficulty):
+    """
+    calculates difficulty of blockchain block, based on previous blocks
+    :param delta_t: time difference between last block group
+    :type delta_t: int
+    :param prev_difficulty: difficulty of blocks in previous block group
+    :type prev_difficulty: int
+    :return: difficulty of block based on previous blocks difficulty & delta_t
+    :rtype: int
+    """
+    if not isinstance(delta_t, int):
+        raise TypeError("calculate_difficulty: expected delta_t to be of type int")
+    if not isinstance(prev_difficulty, int):
+        raise TypeError("calculate_difficulty: expected prev_difficulty to be of type int")
     ratio = (1209600 / delta_t)
     difficulty_addition = math.log(ratio, 2)
     if difficulty_addition > 0:
@@ -288,12 +299,43 @@ def calculate_difficulty(delta_t, prev_difficulty):
     return prev_difficulty
 
 
-def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
-    value = "{}{}{}".format(prev_block_hash, merkle_root_hash, nonce)
+def calculate_hash(previous_block_hash, merkle_tree_root_hash, nonce):
+    """
+    calculates the hash of a block based on its merkle tree root hash, previous block hash and nonce
+    :param previous_block_hash: hash of the previous block in the blockchain
+    :type previous_block_hash: str
+    :param merkle_tree_root_hash: hash of the root of the merkle tree of the block's transactions
+    :type merkle_tree_root_hash: str
+    :param nonce: nonce of the block
+    :type nonce: int
+    :return: hash of the block
+    :rtype: str
+    """
+
+    if not isinstance(previous_block_hash, str):
+        raise TypeError("calculate_hash: expected prev_block_hash to be of type str")
+    if not isinstance(merkle_tree_root_hash, str):
+        raise TypeError("calculate_hash: expected merkle_root_hash to be of type str")
+    if not isinstance(nonce, int):
+        raise TypeError("calculate_hash: expected nonce to be of type int")
+    value = "{}{}{}".format(previous_block_hash, merkle_tree_root_hash, nonce)
     return sha256(value.encode()).hexdigest()
 
 
 def calculate_merkle_root_hash(block_transactions):
+    """
+    calculates the merkle tree root hash of the block's transactions
+    :param block_transactions: list of the blocks transactions
+    :type block_transactions: list
+    :return: merkle tree root hash of the block's transactions
+    :rtype: str
+    """
+    if not isinstance(block_transactions, list):
+        raise TypeError("calculate_merkle_root_hash: expected block_transactions to be of type list")
+    for t in block_transactions:
+        if not isinstance(t, Transaction):
+            raise TypeError("calculate_merkle_root_hash: expected block_transactions to be a list of type Transaction")
+
     block_transactions = block_transactions.copy()
     for x in range(len(block_transactions)):
         block_transactions[x] = block_transactions[x].sha256_hash()
@@ -309,50 +351,26 @@ def calculate_merkle_root_hash(block_transactions):
     return block_transactions[0]
 
 
-def hexify(number, length):
-    """
-    creates hexadecimal value of the number, with prefix zeroes to be of length length
-    :param number: number to calculate hex value for, in base 10
-    :type number: int
-    :param length: requested length of hexadecimal value
-    :type length: int
-    :return: hexadecimal value of the number, with prefix zeroes
-    :rtype: str
-    :rtype: str
-    :raise: ValueError: message size is larger than length
-    """
-    if not isinstance(number, int):
-        raise TypeError("Transaction.hexify(number, length): expected number to be of type int")
-    if not isinstance(length, int):
-        raise TypeError("Transaction.hexify(number, length): expected length to be of type int")
-    if number < 0:
-        raise ValueError("Transaction.hexify(number, length): expected non-negative value for number, received {} "
-                         "instead".format(number))
-    if length < 0:
-        raise ValueError("Transaction.hexify(number, length): expected non-negative value for length, received {} "
-                         "instead".format(length))
-
-    hex_base = hex(number)[2:]
-
-    if len(hex_base) <= length:
-        hex_base = (length - len(hex_base)) * "0" + hex_base
-        return hex_base
-    else:
-        raise ValueError("hexify: hexadecimal string size is larger than length")
-
-
-def hexify_string(string):
-    """
-    creates hexadecimal string of the string, encoded in utf-8
-    :param string: string to calculate hex value for
-    :type string: str
-    :return: hexadecimal string of string, encoded in utf-8
-    :rtype: str
-    """
-    return string.encode("utf-8").hex()
-
-
 def validate_transaction(transaction, blockchain, previous_block_hash=""):
+    """
+    validates the transaction's format & data
+    :param transaction: transaction to validate
+    :type transaction: Transaction
+    :param blockchain: blockchain to use to check transaction's validity
+    :type blockchain: Blockchain
+    :param previous_block_hash: hash of the previous block (for transactions we want to validate not in the consensus chain)
+                                default="" for consensus chain transactions
+    :type previous_block_hash: str
+    :return: True if the transaction is valid, False if not
+    :rtype: tuple
+    """
+    if not isinstance(transaction, Transaction):
+        raise TypeError("validate_transaction: expected transaction to be of type Transaction")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("validate_transaction: expected blockchain to be of type Blockchain")
+    if not isinstance(previous_block_hash, str):
+        raise TypeError("validate_transaction: expected previous_block_hash to be of type str")
+
     if validate_transaction_format(transaction)[0]:
         if previous_block_hash:
             return validate_transaction_data(transaction, blockchain, previous_block_hash)
@@ -363,15 +381,15 @@ def validate_transaction(transaction, blockchain, previous_block_hash=""):
 
 def validate_transaction_data(transaction, blockchain, previous_block_hash):
     """
-
-    :param transaction:
+    validates the transaction's data
+    :param transaction: transaction to validate
     :type transaction: Transaction
-    :param blockchain:
-    :type blockchain:
-    :param previous_block_hash:
-    :type previous_block_hash:
-    :return:
-    :rtype:
+    :param blockchain: blockchain to use to check transaction's validity
+    :type blockchain: Blockchain
+    :param previous_block_hash: hash of the previous block
+    :type previous_block_hash: str
+    :return: True if transaction is valid, False if not
+    :rtype: tuple
     """
     # validate input sources and signatures
     input_amount = 0
@@ -429,13 +447,13 @@ def validate_transaction_data(transaction, blockchain, previous_block_hash):
 
 def validate_transaction_data_consensus(transaction, blockchain):
     """
-
-    :param transaction:
+    validates the transaction's data
+    :param transaction: transaction to validate
     :type transaction: Transaction
-    :param blockchain:
-    :type blockchain:
-    :return:
-    :rtype:
+    :param blockchain: blockchain to use to check transaction's validity
+    :type blockchain: Blockchain
+    :return: True if transaction is valid, False if not
+    :rtype: tuple
     """
     # validate input sources and signatures
     input_amount = 0
@@ -481,7 +499,7 @@ def validate_transaction_data_consensus(transaction, blockchain):
 
 def validate_transaction_format(transaction):
     """
-    validates that the transaction's format is valid
+    validates the transaction's format
     :param transaction: transaction to validate
     :type transaction: Transaction
     :return: True if the transaction is valid, False if else
@@ -532,16 +550,50 @@ build_peers_message(peers_list)
 
 
 def build_get_blocks_message(first_block_number, last_block_number):
+    """
+    builds a get blocks message
+    :param first_block_number: number of first requested block
+    :type first_block_number: int
+    :param last_block_number: number of last requested block
+    :type last_block_number: int
+    :return: get bocks message
+    :rtype: str
+    """
+    if not isinstance(first_block_number, int):
+        raise TypeError("build_get_blocks_message: expected first_block_number to be of type int")
+    if not isinstance(last_block_number, int):
+        raise TypeError("build_get_blocks_message: expected last_block_number to be of type int")
     message = "g{}{}".format(hexify(first_block_number, 6), hexify(last_block_number, 6))
     return message
 
 
 def build_error_message(error_message):
+    """
+    builds an error message
+    :param error_message: error message to build error message for
+    :type error_message: str
+    :return: error message
+    :rtype: str
+    """
+    if not isinstance(error_message, str):
+        raise TypeError("build_error_message: expected error_message to be of type str")
     message = "f{}".format(hexify_string(error_message))
     return message
 
 
 def build_peers_message(peers_list):
+    """
+    builds a peers message
+    :param peers_list: list of peer ipv4 addresses
+    :type peers_list: list
+    :return: peer message
+    :rtype: str
+    """
+    if not isinstance(peers_list, list):
+        raise TypeError("build_peers_message: expected peers_list to be of type list")
+    for p in peers_list:
+        if not isinstance(p, str):
+            raise TypeError("build_peers_message: expected peers_list to be a list of type str")
     message = "b{}".format(hexify(len(peers_list), 2))
     for address in peers_list:
         address_bytes = address.split(".")
@@ -557,6 +609,19 @@ Handle Message Functions
 
 
 def handle_message(message, blockchain):
+    """
+    redirects message to relevant message handling function
+    :param message: message to handle
+    :type message: str
+    :param blockchain: BLockchain to use for relevant messages 
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message: expected blockchain to be of type Blockchain")
     message_handling_functions = dict(a=lambda: handle_message_peers_request(),
                                       b=lambda: handle_message_peers(message),
                                       c=lambda: handle_message_block_request(message, blockchain),
@@ -579,14 +644,18 @@ def handle_message(message, blockchain):
 
 def handle_message_block(message, blockchain):
     """
-
-    :param message:
-    :type message:
-    :param blockchain:
+    validates block message, appends it if it is valid
+    :param message: block message
+    :type message: str
+    :param blockchain: blockchain to use to validate block and to append block to if it is valid
     :type blockchain: Blockchain
-    :return:
-    :rtype:
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
     """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_block: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_block: expected blockchain to be type Blockchain")
     try:
         block = Block.from_network_format(message)
     except ValueError:
@@ -629,7 +698,7 @@ def handle_message_block(message, blockchain):
 
     # validate nonce #
     maximum = 2 ** (256 - block.difficulty)
-    b_hash = calculate_hash(block.merkle_root_hash, block.prev_hash, block.nonce)
+    b_hash = calculate_hash(block.prev_hash, block.merkle_root_hash, block.nonce)
     int_hash = int(b_hash, 16)
 
     if int_hash > maximum:
@@ -691,6 +760,19 @@ def handle_message_block(message, blockchain):
 
 
 def handle_message_block_request(message, blockchain):
+    """
+    validates block request message and returns appropriate reply
+    :param message: block request message
+    :type message: str
+    :param blockchain: blockchain to use to get block
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_block_request: expected messge to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_block_request: expected blockchain to be of type Blockchain")
     if len(message) != 71:
         # message not in correct format
         logging.debug("Message is an invalid block request")
@@ -719,6 +801,19 @@ def handle_message_block_request(message, blockchain):
 
 
 def handle_message_blocks(message, blockchain):
+    """
+    validates blocks message, appends block if they are valid
+    :param message: blocks message
+    :type message: str
+    :param blockchain: blockchain to use to validate blocks and to append blocks if they are valid
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_blocks: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_blocks: expected blockchain to be of type Blockchain")
     block_count = int(message[1:7], 16)
     message = message[7:]
     for i in range(block_count):
@@ -728,6 +823,19 @@ def handle_message_blocks(message, blockchain):
 
 
 def handle_message_blocks_request(message, blockchain):
+    """
+    validates blocks request message and returns appropriate reply
+    :param message: blocks request message
+    :type message: str
+    :param blockchain: blockchain to use to get blocks
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_blocks_request: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_blocks_request: expected blockchain to be of type Blockchain")
     first_block = int(message[1:7], 16)
     last_block = int(message[7:13], 16)
 
@@ -742,11 +850,29 @@ def handle_message_blocks_request(message, blockchain):
 
 
 def handle_message_error(message):
+    """
+    handles error message
+    :param message: error message
+    :type message: str
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_error: expected message to be of type str")
     logging.debug("Message is an error message [{}]".format(message[1:]))
     return None, -1
 
 
 def handle_message_peers(message):
+    """
+    validates peers message, connects to them if valid
+    :param message: peers message
+    :type message: str
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_peers: expected message to be of type str")
     if len(message) < 3:
         logging.debug("Message is an invalid peer message")
         return None, -1
@@ -772,6 +898,11 @@ def handle_message_peers(message):
 
 
 def handle_message_peers_request():
+    """
+    handles peer request message
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
     logging.debug("Message is a peer request message")
     reply = build_peers_message(inputs.array)
     reply = "{}{}".format(hexify(len(reply), 5), reply)
@@ -779,6 +910,19 @@ def handle_message_peers_request():
 
 
 def handle_message_transaction(message, blockchain):
+    """
+    validates transactions message, appends it to transactions list if valid
+    :param message: transaction message
+    :type message: str
+    :param blockchain: blockchain to use to validate transaction
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_transaction: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_transaction: expected blockchain to be of type Blockchain")
     try:
         transaction = Transaction.from_network_format(message)
     except ValueError:
@@ -807,23 +951,30 @@ Block Miner Function
 def find_nonce(difficulty, prev_hash, merkle_hash):
     """
     finds nonce for new block
-    :param difficulty:
-    :type difficulty:
-    :param prev_hash:
-    :type prev_hash:
-    :param merkle_hash:
-    :type merkle_hash:
-    :return:
-    :rtype:
+    :param difficulty: difficulty of block to find nonce for
+    :type difficulty: int
+    :param prev_hash: hash of the previous block
+    :type prev_hash: str
+    :param merkle_hash: hash of the block's transactions merkle tree root
+    :type merkle_hash: str
+    :return: nonce of the block
+    :rtype: int
     """
+    if not isinstance(difficulty, int):
+        raise TypeError("find_nonce: expected nonce to be of type int")
+    if not isinstance(prev_hash, str):
+        raise TypeError("find_nonce: expected prev_hash to be of type str")
+    if not isinstance(merkle_hash, str):
+        raise TypeError("find_nonce: expected merkle_hash to be of type str")
+
     nonce = 0
 
-    block_hash = calculate_hash(merkle_hash, prev_hash, nonce)
+    block_hash = calculate_hash(prev_hash, merkle_hash, nonce)
     bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
 
     while bin_hash[:difficulty] != "0" * difficulty:
         nonce += 1
-        block_hash = calculate_hash(merkle_hash, prev_hash, nonce)
+        block_hash = calculate_hash(prev_hash, merkle_hash, nonce)
         bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
 
         if flags["received new block"]:
@@ -834,12 +985,12 @@ def find_nonce(difficulty, prev_hash, merkle_hash):
 
 def mine_new_block(blockchain):
     """
-
-    :param blockchain:
-    :type blockchain: Blockchain
-    :return:
-    :rtype:
+    mining thread target function, creates new block in consensus chain :param blockchain: blockchain to append new
+    block to, and to get datd from :type blockchain: Blockchain :return: pushes block message into thread_queue if
+    new block found, otherwise doesn't push anything into thread_queue
     """
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("mine_new_block: expected blockchain to be of type Blockchain")
     public_key = config("public key")
     block_number = blockchain.__len__() + 1
 
@@ -883,7 +1034,7 @@ def mine_new_block(blockchain):
     nonce = find_nonce(difficulty, prev_hash, merkle_root_hash)
 
     if nonce != -1:
-        self_hash = calculate_hash(merkle_root_hash, prev_hash, nonce)
+        self_hash = calculate_hash(prev_hash, merkle_root_hash, nonce)
         blockchain.append(block_number, int(datetime.datetime.now().timestamp()), difficulty, nonce, prev_hash,
                           merkle_root_hash, final_block_transactions, self_hash)
 
