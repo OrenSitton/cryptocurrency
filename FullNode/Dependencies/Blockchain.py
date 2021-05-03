@@ -3,8 +3,6 @@ Author: Oren Sitton
 File: Blockchain.py
 Python Version: 3
 """
-import csv
-import os
 
 from mysql import connector
 
@@ -36,6 +34,7 @@ class Blockchain:
             return the block(s) at the requested number
         __len__()
             calculates the length of the Blockchain's consensus chain
+        __sizeof__()
         append(block_number, timestamp, size, prev_hash, difficulty, nonce, merkle_root_hash, transactions, self_hash)
             appends new block to the blockchain database
         delete
@@ -48,7 +47,7 @@ class Blockchain:
         Static Methods
         --------------
         datetime_string_posix(datetime_string)
-            converts sql dateteime string to posix time
+            converts sql datetime string to posix time
         """
 
     def __init__(self, host="localhost", user="root", password="root"):
@@ -61,6 +60,12 @@ class Blockchain:
         :param password: MySQL server password
         :type password: str
         """
+        if not isinstance(host, str):
+            raise TypeError("Blockchain.__init__: expected host to be of type str")
+        if not isinstance(user, str):
+            raise TypeError("Blockchain.__init__: expected user to be of type str")
+        if not isinstance(password, str):
+            raise TypeError("Blockchain.__init__: expected password to be of type str")
 
         # connect to MySQL server
         self.db = connector.connect(
@@ -72,7 +77,7 @@ class Blockchain:
         # initiate database cursor
         self.cursor = self.db.cursor()
 
-        # create Blockchains database if it doesn't exist yet
+        # create Blockchain's database if it doesn't exist yet
         self.cursor.execute("CREATE DATABASE if not EXISTS Blockchain")
 
         # set cursor's database to Blockchain
@@ -97,10 +102,12 @@ class Blockchain:
         :raises: IndexError: block number is not within range
         :raises: TypeError: expected block number to be of type int
         """
+        if not isinstance(block_number, int):
+            raise TypeError("Blockchain.__getitem__: expected block_number to be of type int")
+        if not isinstance(prev_hash, str):
+            raise TypeError("Blockchain.__getitem__: expected prev_hash to be of type str")
         if block_number < 1 or block_number > self.__len__():
             raise IndexError("Blockchain.__getitem__: index out of range")
-        elif not isinstance(block_number, int):
-            raise TypeError("Blockchain.__getitem__: expected block number to be of type int")
 
         self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
 
@@ -125,6 +132,7 @@ class Blockchain:
         :return: length of the blockchain's consensus chain
         :rtype: int
         """
+
         self.cursor.execute("SELECT * FROM Blocks ORDER BY block_number DESC LIMIT 1")
 
         block = self.cursor.fetchall()
@@ -135,6 +143,11 @@ class Blockchain:
             return 0
 
     def __sizeof__(self):
+        """
+        calculates the size of the blockchain's database (amount of rows)
+        :return: size of the blockchain's database
+        :rtype: int
+        """
         self.cursor.execute("SELECT * FROM Blocks")
 
         return len(self.cursor.fetchall())
@@ -160,6 +173,23 @@ class Blockchain:
         :param self_hash: hash of the block
         :type self_hash: str
         """
+        if not isinstance(block_number, int):
+            raise TypeError("Blockchain.append: expected block_number to be of type int")
+        if not isinstance(timestamp, int):
+            raise TypeError("Blockchain.append: expected timestamp to be of type int")
+        if not isinstance(difficulty, int):
+            raise TypeError("Blockchain.append: expected difficulty to be of type int")
+        if not isinstance(nonce, int):
+            raise TypeError("Blockchain.append: expected nonce to be of type int")
+        if not isinstance(previous_hash, str):
+            raise TypeError("Blockchain.append: expected previous_hash to be of type str")
+        if not isinstance(merkle_root_hash, str):
+            raise TypeError("Blockchain.append: expected merkle_root_hash to be of type str")
+        if not isinstance(transactions, list):
+            raise TypeError("Blockchain.append: expected transactions to be of type list")
+        if not isinstance(self_hash, str):
+            raise TypeError("Blockchain.append: expected self_hash to be of type str")
+
         for x in range(len(transactions)):
             transactions[x] = transactions[x].network_format()
         t = ""
@@ -172,57 +202,16 @@ class Blockchain:
                                                              merkle_root_hash, t, self_hash))
         self.db.commit()
 
-    def append_block(self, block):
-        """
-
-        :param block:
-        :type block: Block
-        :return:
-        :rtype:
-        """
-        # TODO: implement
-        pass
-
     def delete(self, block_hash):
         """
         deletes block from sql database
         :param block_hash: hash of block to delete
         :type block_hash: str
         """
+        if not isinstance(block_hash, str):
+            raise TypeError("Blockchain.delete: expected block_hash to be of type str")
+
         self.cursor.execute("DELETE FROM Blocks WHERE self_hash={}".format(block_hash))
-
-    def export(self, directory, first_block_number, last_block_number):
-        """
-
-        :param directory:
-        :type directory:
-        :param first_block_number:
-        :type first_block_number:
-        :param last_block_number:
-        :type last_block_number:
-        :return:
-        :rtype:
-        """
-        # TODO: fix to just export entire database, not certain blocks or consensus chain
-        current_directory = os.getcwd()
-        os.chdir(directory)
-
-        self.cursor.execute("SELECT * FROM Blocks")
-        results = self.cursor.fetchall()
-
-        with open('blockchain.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(["block_number", "time_created", "prev_hash", "difficulty", "nonce",
-                             "merkle_root_hash", "transactions", "self_hash"])
-            for i in range(first_block_number, last_block_number + 1):
-                try:
-                    block = self[i]
-                    result_array = [block.block_number, block.timestamp, block.prev_hash, block.difficulty, block.nonce, block.merkle_root_hash, block.transactions.decode(), block.self_hash]
-                    writer.writerow(result_array)
-                except IndexError:
-                    pass
-
-        os.chdir(current_directory)
 
     def get_block_by_hash(self, block_hash):
         """
@@ -232,6 +221,9 @@ class Blockchain:
         :return: block with hash block_hash
         :rtype: Block
         """
+        if not isinstance(block_hash, str):
+            raise TypeError("Blockchain.get_block_by_hash: expected block_hash to be of type str")
+
         self.cursor.execute("SELECT * FROM Blocks WHERE self_hash={}".format(block_hash))
         result = self.cursor.fetchall()
 
@@ -250,6 +242,9 @@ class Blockchain:
         :raises: IndexError: block number is not within range
         :raises: TypeError: expected block number to be of type int
         """
+        if not isinstance(block_number, int):
+            raise TypeError("Blockchain.get_block_consensus_chain: expected block_number to be of type int")
+
         if block_number < 1 or block_number > self.__len__():
             raise IndexError("Blockchain.get_blocks: block number not within range")
         elif not isinstance(block_number, int):
@@ -276,22 +271,6 @@ class Blockchain:
                 return minimum_posix
             else:
                 return self.get_block_by_hash(minimum_posix.prev_hash)
-
-    def get_block_by_previous_hash(self, previous_hash):
-        """
-
-        :param previous_hash:
-        :type previous_hash:
-        :return:
-        :rtype: Block
-        """
-        self.cursor.execute("SELECT * FROM Blocks WHERE prev_hash={}".format(previous_hash))
-        result = self.cursor.fetchall()
-
-        if result:
-            return Block(result[0])
-        else:
-            return None
 
 
 def main():
