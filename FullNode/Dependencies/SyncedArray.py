@@ -4,7 +4,6 @@ File: SyncedArray.py
 Python Version: 3
 """
 import threading
-import logging
 
 
 class SyncedArray:
@@ -46,14 +45,10 @@ class SyncedArray:
         returns the array as a string
     acquire_edit_permissions(acquired=0)
         acquires the write lock and read locks
-    acquired_read_permission()
-
     append(value)
         appends the value to the end of the array
     release_edit_permissions(released=0)
         releases the write and read locks
-    released_read_permission()
-
     remove(value)
         removes the value from the array
     array
@@ -68,6 +63,11 @@ class SyncedArray:
         :param max_readers: maximum amount of simultaneous readers
         :type max_readers: int
         """
+        if not isinstance(name, str):
+            raise TypeError("SyncedArray.__init__: expected name to be of type str")
+        if not isinstance(max_readers, int):
+            raise TypeError("SyncedArray.__init__: expected name to be of type int")
+
         self.__array = []
         self.name = name
         self.max_readers = max_readers
@@ -84,20 +84,20 @@ class SyncedArray:
         :raises: NotImplementedError: addition of SyncedArray and received type not implemented
         """
         if isinstance(other, list):
-            self.acquire_read_permission()
+            self.semaphore_lock.acquire()
 
             combined_lists = self.__array + other
 
-            self.release_read_permission()
+            self.semaphore_lock.release()
 
             return combined_lists
 
         elif isinstance(other, SyncedArray):
-            self.acquire_read_permission()
+            self.semaphore_lock.acquire()
 
             combined_lists = self.__array + other.array
 
-            self.release_read_permission()
+            self.semaphore_lock.release()
 
             return combined_lists
 
@@ -110,11 +110,11 @@ class SyncedArray:
         :return: True if array is not empty, False if it is
         :rtype: bool
         """
-        self.acquire_read_permission()
+        self.semaphore_lock.acquire()
 
         bool_value = self.__len__() != 0
 
-        self.release_read_permission()
+        self.semaphore_lock.release()
 
         return bool_value
 
@@ -127,11 +127,11 @@ class SyncedArray:
         :rtype: bool
         """
 
-        self.acquire_read_permission()
+        self.semaphore_lock.acquire()
 
         contains = item in self.__array
 
-        self.release_read_permission()
+        self.semaphore_lock.release()
 
         return contains
 
@@ -144,16 +144,18 @@ class SyncedArray:
         :rtype: Any
         :raises: IndexError: index is not within range 0 < index < len(array) - 1
         """
-        self.acquire_read_permission()
+        if not isinstance(index, int):
+            raise TypeError("SyncedArray.__getitem__: expected index to be of type int")
+
+        self.semaphore_lock.acquire()
 
         if index < 0 or index > len(self.__array) - 1:
             self.semaphore_lock.release()
-            logging.debug("Released reading lock for {}".format(self.name))
             raise IndexError("SyncedArray.__getitem__: index is not within range")
 
         item = self.__array[index]
 
-        self.release_read_permission()
+        self.semaphore_lock.release()
 
         return item
 
@@ -163,11 +165,11 @@ class SyncedArray:
         :return: length of the array
         :rtype: int
         """
-        self.acquire_read_permission()
+        self.semaphore_lock.acquire()
 
         length = self.__array.__len__()
 
-        self.release_read_permission()
+        self.semaphore_lock.release()
 
         return length
 
@@ -181,20 +183,20 @@ class SyncedArray:
         :raises: NotImplementedError: addition of SyncedArray and received type not implemented
         """
         if isinstance(other, list):
-            self.acquire_read_permission()
+            self.semaphore_lock.acquire()
 
             combined_lists = other + self.__array
 
-            self.release_read_permission()
+            self.semaphore_lock.release()
 
             return combined_lists
 
         elif isinstance(other, SyncedArray):
-            self.acquire_read_permission()
+            self.semaphore_lock.acquire()
 
             combined_lists = other.array + self.__array
 
-            self.release_read_permission()
+            self.semaphore_lock.release()
 
             return combined_lists
 
@@ -210,9 +212,12 @@ class SyncedArray:
         :type value: Any
         :raises: IndexError: index is not within range 0 < index < len(array) - 1
         """
-        self.acquire_read_permission()
+        if not isinstance(index, int):
+            raise TypeError("SyncedArray.__setitem__: expected index to be of type int")
+
+        self.semaphore_lock.acquire()
         if index < 0 or index > len(self.__array) - 1:
-            self.release_read_permission()
+            self.semaphore_lock.release()
             raise IndexError("SyncedArray.__setitem__: index is not within range")
 
         self.acquire_write_permission(acquired=1)
@@ -227,11 +232,11 @@ class SyncedArray:
         :return: array representation
         :rtype: str
         """
-        self.acquire_read_permission()
+        self.semaphore_lock.acquire()
 
         array_string = self.__array.__str__()
 
-        self.release_read_permission()
+        self.semaphore_lock.release()
 
         return array_string
 
@@ -241,17 +246,15 @@ class SyncedArray:
         :param acquired: amount of semaphore locks already acquired by caller (default 0)
         :type acquired: int
         """
+        if not isinstance(acquired, int):
+            raise TypeError("SyncedArray.acquire_write_permissions: expected acquired to be of type int")
+        if acquired > self.max_readers:
+            raise ValueError("SyncedArray.acquire_write_permissions: expected acquired to be less than max_readers")
+
         self.write_lock.acquire()
-        logging.debug("Acquired write lock for {}".format(self.name))
 
         for x in range(self.max_readers - acquired):
             self.semaphore_lock.acquire()
-
-        logging.debug("Acquired all read locks for {}".format(self.name))
-
-    def acquire_read_permission(self):
-        self.semaphore_lock.acquire()
-        logging.debug("Acquired read lock for {}".format(self.name))
 
     def append(self, value):
         """
@@ -271,16 +274,15 @@ class SyncedArray:
         :param released: amount of semaphore locks already released by caller (default 0)
         :type released: int
         """
+        if not isinstance(released, int):
+            raise TypeError("SyncedArray.release_write_permissions: expected released to be of type int")
+        if released > self.max_readers:
+            raise ValueError("SyncedArray.release_write_permissions: expected released to be less than max_readers")
+
         self.write_lock.release()
-        logging.debug("Released write lock for {}".format(self.name))
 
         for x in range(self.max_readers - released):
             self.semaphore_lock.release()
-        logging.debug("Released all reading locks for {}".format(self.name))
-
-    def release_read_permission(self):
-        self.semaphore_lock.release()
-        logging.debug("Released read lock for {}".format(self.name))
 
     def remove(self, value):
         """
@@ -306,11 +308,11 @@ class SyncedArray:
         :return: array
         :rtype: list
         """
-        self.acquire_read_permission()
+        self.semaphore_lock.acquire()
 
         array = self.__array.copy()
 
-        self.release_read_permission()
+        self.semaphore_lock.release()
 
         return array
 
