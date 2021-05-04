@@ -58,7 +58,13 @@ class Block:
         self.nonce = int(block[4])
         self.prev_hash = block[5]
         self.merkle_root_hash = block[6]
-        self.transactions = block[7].decode().split(",")
+
+        self.transactions = block[7]
+
+        if isinstance(self.transactions, str):
+            self.transactions = self.transactions.split(",")
+        else:
+            self.transactions = self.transactions.decode().split(",")
         for x in range(len(self.transactions)):
             self.transactions[x] = Transaction.from_network_format(self.transactions[x])
         self.self_hash = block[8]
