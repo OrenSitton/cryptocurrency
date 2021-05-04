@@ -73,6 +73,7 @@ class Blockchain:
             host=host,
             user=user,
             passwd=password,
+            auth_plugin='mysql_native_password'
         )
 
         # initiate database cursor

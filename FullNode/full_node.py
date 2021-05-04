@@ -15,9 +15,9 @@ from hashlib import sha256
 from time import sleep
 
 import select
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
+from crypto.Hash import SHA256
+from crypto.PublicKey import RSA
+from crypto.Signature import PKCS1_v1_5
 
 from Dependencies import Block
 from Dependencies import Blockchain
@@ -1044,26 +1044,33 @@ def main():
 
     while inputs:
         readable, writable, exceptional = select.select(inputs.array, client_sockets.array, inputs.array +
-                                                        client_sockets.array, 1)
+                                                        client_sockets.array, 0)
 
         for sock in readable:
             if sock is server_socket:
                 client_socket, address = server_socket.accept()
                 inputs.append(client_socket)
+                logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
 
                 client_socket_exists = False
 
                 for other_sock in client_sockets:
                     if other_sock.getpeername()[0] == address[0]:
                         client_socket_exists = True
+                        logging.info("[{}, {}]: Client socket already exists".format(address[0], address[1]))
                 if not client_socket_exists:
-                    new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    new_socket.connect((address[0], port))
-                    client_sockets.append(new_socket)
+                    try:
+                        new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        new_socket.connect((address[0], port))
+                    except (ConnectionRefusedError, TimeoutError):
+                        inputs.remove(client_socket)
+                        client_socket.close()
+                    else:
+                        client_sockets.append(new_socket)
 
-                    if address[0] not in message_queues:
-                        message_queues[address[0]] = queue.Queue()
-                    message_queues[address[0]].put(get_most_recent_block)
+                        if address[0] not in message_queues:
+                            message_queues[address[0]] = queue.Queue()
+                        message_queues[address[0]].put(get_most_recent_block)
 
             else:
                 size = sock.recv(5).decode()

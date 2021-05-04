@@ -9,7 +9,7 @@ from pickle import dump
 
 def main():
     configuration = {
-        "ip address": "localhost",
+        "ip address": "192.0",
         "port": 8333,
         "seed address": "localhost",
         "seed port": 8666,
