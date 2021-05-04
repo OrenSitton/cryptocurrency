@@ -15,9 +15,18 @@ from hashlib import sha256
 from time import sleep
 
 import select
-from crypto.Hash import SHA256
-from crypto.PublicKey import RSA
-from crypto.Signature import PKCS1_v1_5
+
+try:
+    from crypto.Hash import SHA256
+    from crypto.PublicKey import RSA
+    from crypto.Signature import PKCS1_v1_5
+except ModuleNotFoundError:
+    try:
+        from Crypto.Hash import SHA256
+        from Crypto.PublicKey import RSA
+        from Crypto.Signature import PKCS1_v1_5
+    except ModuleNotFoundError:
+        exit(-1)
 
 from Dependencies import Block
 from Dependencies import Blockchain
@@ -100,13 +109,14 @@ def initialize_client(ip, port):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
+        logging.info("Attempting connection to [{}, {}]".format(ip, port))
         client_socket.connect((ip, port))
-        logging.info("[{}, {}]: Connected to node"
+        logging.info("[{}, {}]: Connected client socket to node"
                      .format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
 
-    except (ConnectionRefusedError, socket.gaierror):
-        logging.info("[{}, {}]: Connection attempt refused"
-                     .format(ip, port))
+    except (ConnectionRefusedError, socket.gaierror, TimeoutError) as e:
+        logging.info("[{}, {}]: Connection attempt refused [{}]"
+                     .format(ip, port, str(e)))
 
     else:
         client_sockets.append(client_socket)
@@ -1048,9 +1058,11 @@ def main():
 
         for sock in readable:
             if sock is server_socket:
+                logging.info("New node attempting connection to server")
                 client_socket, address = server_socket.accept()
                 inputs.append(client_socket)
                 logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
+                client_socket.setblocking(False)
 
                 client_socket_exists = False
 
@@ -1062,7 +1074,9 @@ def main():
                     try:
                         new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         new_socket.connect((address[0], port))
+                        new_socket.setblocking(False)
                     except (ConnectionRefusedError, TimeoutError):
+                        logging.info("[{}, {}]: Server refused connection from client socket".format(address[0], address[1]))
                         inputs.remove(client_socket)
                         client_socket.close()
                     else:
