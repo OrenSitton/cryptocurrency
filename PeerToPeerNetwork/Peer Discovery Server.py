@@ -76,6 +76,7 @@ def handle_message(request, ip_addresses, destination):
     :return: reply to send to client
     :rtype: str
     """
+    ip_addresses = ip_addresses.copy()
     request_type = request[:1]
 
     if request_type == "a":
