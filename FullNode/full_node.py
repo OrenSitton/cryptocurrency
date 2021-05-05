@@ -40,8 +40,6 @@ from Dependencies import hexify_string
 """
 Global Variables
 ----------------
-inputs : SyncedArray
-    list of current nodes connected to node's server socket
 client_sockets : SyncedArray
     list of current client sockets connected to other node's server sockets
 transactions : SyncedArray
@@ -52,9 +50,8 @@ flags : Flags
     flags object to coordinate between threads
 """
 
-inputs = SyncedArray(name="input list")
-client_sockets = SyncedArray(name="client List")
-transactions = SyncedArray(name="transaction List")
+sockets = SyncedArray()
+transactions = SyncedArray()
 thread_queue = queue.Queue()
 flags = Flags()
 
@@ -119,7 +116,7 @@ def initialize_client(ip, port):
                      .format(ip, port, str(e)))
 
     else:
-        client_sockets.append(client_socket)
+        sockets.append(client_socket)
 
 
 def initialize_clients(addresses, port):
@@ -138,7 +135,7 @@ def initialize_clients(addresses, port):
     for i, address in enumerate(addresses):
         if address != config("ip_address"):
             exists = False
-            for sock in client_sockets:
+            for sock in sockets:
                 if sock.getpeername()[0] == address:
                     exists = True
             if not exists:
@@ -151,7 +148,7 @@ def initialize_clients(addresses, port):
         thread.join()
 
     logging.info("{} nodes accepted connection"
-                 .format(len(client_sockets)))
+                 .format(len(sockets)))
 
 
 def initialize_server(ip, port):
@@ -723,7 +720,7 @@ def handle_message_block(message, blockchain):
 
     # raise flag if appropriate
     if blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash == block.self_hash:
-        flags["received new block"] = True
+        flags["received new consensus block"] = True
 
     # remove transactions from list if necessary
     for t in transactions:
@@ -1035,7 +1032,7 @@ Main Function
 def main():
     global thread_queue
     global flags
-    global inputs
+    global sockets
 
     threading.current_thread().name = "MainNodeThread"
 
@@ -1067,45 +1064,29 @@ def main():
     mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
     mining_thread.start()
 
-    inputs.append(server_socket)
+    sockets.append(server_socket)
     message_queues = {}
 
     get_most_recent_block = "00047g0000000000000000000000000000000000000000000000000000000000000000000000"
 
-    while inputs:
-        readable, writable, exceptional = select.select(inputs.array, client_sockets.array, inputs.array +
-                                                        client_sockets.array, 0)
+    while sockets:
+        readable, writable, exceptional = select.select(sockets.array, sockets.array, sockets.array, 0)
 
         for sock in readable:
             if sock is server_socket:
                 logging.info("New node attempting connection to server")
                 client_socket, address = server_socket.accept()
-                inputs.append(client_socket)
+
+                sockets.append(client_socket)
                 logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
+
                 client_socket.setblocking(False)
 
                 client_socket_exists = False
 
-                for other_sock in client_sockets:
-                    if other_sock.getpeername()[0] == address[0]:
-                        client_socket_exists = True
-                        logging.info("[{}, {}]: Client socket already exists".format(address[0], address[1]))
-                if not client_socket_exists:
-                    try:
-                        new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        new_socket.connect((address[0], port))
-                        new_socket.setblocking(False)
-                        logging.info("[{}, {}]: Created client socket for new node connected".format(address[0], address[1]))
-                    except (ConnectionRefusedError, TimeoutError):
-                        logging.info("[{}, {}]: Server refused connection from client socket".format(address[0], address[1]))
-                        inputs.remove(client_socket)
-                        client_socket.close()
-                    else:
-                        client_sockets.append(new_socket)
-
-                        if address[0] not in message_queues:
-                            message_queues[address[0]] = queue.Queue()
-                        message_queues[address[0]].put(get_most_recent_block)
+                if address[0] not in message_queues:
+                    message_queues[address[0]] = queue.Queue()
+                message_queues[address[0]].put(get_most_recent_block)
 
             else:
                 size = sock.recv(5).decode()
@@ -1126,22 +1107,23 @@ def main():
                     elif reply[1] == 2:
                         logging.debug("Sending reply to all nodes")
 
-                        for other_sock in client_sockets:
+                        for other_sock in sockets:
                             if other_sock.getpeername()[0] not in message_queues:
                                 message_queues[other_sock.getpeername()[0]] = queue.Queue()
                             message_queues[other_sock.getpeername()[0]].put(reply[0])
                 else:
+                    logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
                     address = sock.getpeername()[0]
                     sock.close()
-                    inputs.remove(sock)
+                    sockets.remove(sock)
 
                     if address in message_queues:
                         del message_queues[address]
 
-                    for other_sock in client_sockets:
+                    for other_sock in sockets:
                         if other_sock.getpeername()[0] == address:
                             other_sock.close()
-                            client_sockets.remove(other_sock)
+                            sockets.remove(other_sock)
 
         for sock in writable:
             address = sock.getpeername()[0]
@@ -1154,19 +1136,16 @@ def main():
 
         for sock in exceptional:
             address = sock.getpeername()[0]
-            for other_sock in client_sockets:
+            for other_sock in sockets:
                 if other_sock.getpeername()[0] == address:
                     other_sock.close()
-                    client_sockets.remove(other_sock)
-            for other_sock in inputs:
-                if other_sock.getpeername()[0] == address:
-                    other_sock.close()
-                    inputs.remove(other_sock)
+                    sockets.remove(other_sock)
 
             if address in message_queues:
                 del message_queues[address]
 
-        if flags["received new block"]:
+        if flags["received new consensus block"]:
+            # TODO: end mining thread
             pass
 
         if flags["created new block"]:
@@ -1177,7 +1156,7 @@ def main():
                 message = thread_queue.get()
                 logging.debug("Sending new block to all nodes")
 
-                for sock in client_sockets:
+                for sock in sockets:
                     if sock.getpeername()[0] not in message_queues:
                         message_queues[sock.getpeername()[0]] = queue.Queue()
                     message_queues[sock.getpeername()[0]].put(message)
@@ -1186,9 +1165,11 @@ def main():
             mining_thread.start()
 
         if flags["finished seeding"]:
+            # TODO: join seeding thread
             pass
 
         if flags["exception"]:
+            # TODO: handle exceptions
             pass
 
 
