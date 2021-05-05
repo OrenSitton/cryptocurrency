@@ -114,7 +114,7 @@ def initialize_client(ip, port):
         logging.info("[{}, {}]: Connected client socket to node"
                      .format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
 
-    except (ConnectionRefusedError, socket.gaierror, TimeoutError) as e:
+    except (ConnectionRefusedError, socket.gaierror, TimeoutError, WindowsError) as e:
         logging.info("[{}, {}]: Connection attempt refused [{}]"
                      .format(ip, port, str(e)))
 

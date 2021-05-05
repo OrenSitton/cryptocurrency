@@ -3,7 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/full_node.py" beforeDir="false" afterPath="$PROJECT_DIR$/full_node.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../PeerToPeerNetwork/Peer Discovery Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../PeerToPeerNetwork/Peer Discovery Server.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Protocols/Network Protocol Tables.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/../Protocols/Network Protocol Tables.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" afterDir="false" />

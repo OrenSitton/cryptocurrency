@@ -36,6 +36,7 @@ def config(labels, entries, types, window):
 
 def run_full_node(window):
     global process
+    # TODO: add exception handling
     process = subprocess.Popen(['python', 'full_node.py'])
 
 
