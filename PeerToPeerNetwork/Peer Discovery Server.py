@@ -110,14 +110,13 @@ def handle_message(request, ip_addresses, destination):
 
 def main():
     # open config file
-    ip = "0.0.0.0"
+    ip = "localhost"
     port = 8666
     addresses_amount = 3
     ip_addresses = []
-    count = 1
+    count = 0
     for x in range(addresses_amount + 1):
         ip_addresses.append("")
-    ip_addresses[0] = "192.168.0.16"
     # initiate server socket
     server_socket = initialize_server(ip, port)
 
