@@ -136,8 +136,12 @@ def initialize_clients(addresses, port):
         if address != config("ip_address"):
             exists = False
             for sock in sockets:
-                if sock.getpeername()[0] == address:
-                    exists = True
+                try:
+                    if sock.getpeername()[0] == address:
+                        exists = True
+                except OSError:
+                    pass
+                    # sock is server socket
             if not exists:
                 thread = threading.Thread(name="Client Connection Thread {}".format(i + 1), target=initialize_client,
                                           args=(address, port,))
