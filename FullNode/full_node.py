@@ -36,6 +36,7 @@ from Dependencies import Transaction
 from Dependencies import calculate_hash
 from Dependencies import hexify
 from Dependencies import hexify_string
+from Dependencies import dehexify_string
 
 """
 Global Variables
@@ -763,7 +764,10 @@ def handle_message_block_request(message, blockchain):
             logging.info("Message is an invalid block request")
             return None, -1
         elif block_number == 0:
-            block = blockchain.get_block_consensus_chain(blockchain.__len__())
+            try:
+                block = blockchain.get_block_consensus_chain(blockchain.__len__())
+            except IndexError:
+                return None, -1
         else:
             # return requested block if have, else return nothing
             block = blockchain.__getitem__(block_number, prev_hash=previous_block_hash)
@@ -837,7 +841,7 @@ def handle_message_error(message):
     """
     if not isinstance(message, str):
         raise TypeError("handle_message_error: expected message to be of type str")
-    logging.info("Message is an error message [{}]".format(message[1:]))
+    logging.info("Message is an error message [{}]".format(dehexify_string(message[1:])))
     return None, -1
 
 
@@ -882,7 +886,7 @@ def handle_message_peers_request():
     :rtype: tuple
     """
     logging.info("Message is a peer request message")
-    reply = build_peers_message(inputs.array)
+    reply = build_peers_message(sockets.array)
     reply = "{}{}".format(hexify(len(reply), 5), reply)
     return reply, 1
 
@@ -1072,8 +1076,8 @@ def main():
 
     get_most_recent_block = "00047c0000000000000000000000000000000000000000000000000000000000000000000000"
 
-    while sockets:
-        inputs = socket.array + [server_socket]
+    while True:
+        inputs = sockets.array + [server_socket]
         readable, writable, exceptional = select.select(inputs, sockets.array, sockets.array, 0)
 
         for sock in readable:

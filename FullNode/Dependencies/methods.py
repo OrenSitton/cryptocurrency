@@ -71,3 +71,8 @@ def hexify_string(string):
     :rtype: str
     """
     return string.encode("utf-8").hex()
+
+
+def dehexify_string(hex_string):
+    return bytes.fromhex(hexify_string()).decode()
+    pass
