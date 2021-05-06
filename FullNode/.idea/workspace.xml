@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/methods.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/methods.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/full_node.py" beforeDir="false" afterPath="$PROJECT_DIR$/full_node.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -180,7 +178,13 @@
       <option name="presentableId" value="LOCAL‎00002" />
       <updated>1620288065988</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL‎00003" summary="added string de-hex">
+      <created>1620289115675</created>
+      <option name="number" value="LOCAL‎00003" />
+      <option name="presentableId" value="LOCAL‎00003" />
+      <updated>1620289115675</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -199,6 +203,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Added error handling in initialize_client function" />
     <MESSAGE value="Fixed get blocks message &amp; peer connection" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fixed get blocks message &amp; peer connection" />
+    <MESSAGE value="added string de-hex" />
+    <option name="LAST_COMMIT_MESSAGE" value="added string de-hex" />
   </component>
 </project>

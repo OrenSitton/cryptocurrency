@@ -136,7 +136,7 @@ def initialize_clients(addresses, port):
     for i, address in enumerate(addresses):
         if address != config("ip_address"):
             exists = False
-            for sock in sockets:
+            for sock in sockets.array:
                 try:
                     if sock.getpeername()[0] == address:
                         exists = True
@@ -172,7 +172,7 @@ def initialize_server(ip, port):
         raise TypeError("initialize_server: expected port to be of type int")
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setblocking(False)
+        # server_socket.setblocking(False)
         server_socket.bind((ip, port))
         server_socket.listen(5)
     except OSError:
@@ -1089,8 +1089,6 @@ def main():
                 logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
 
                 client_socket.setblocking(False)
-
-                client_socket_exists = False
 
                 if address[0] not in message_queues:
                     message_queues[address[0]] = queue.Queue()
