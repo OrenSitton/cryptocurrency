@@ -14,8 +14,6 @@ class SyncedArray:
     ----------
     __array : list
         a list containing the instances data
-    name : str
-        the name of the list (default "list")
     max_readers : int
         the maximum amount of simultaneous readers per instance (default 2)
     semaphore_lock : Semaphore
@@ -25,7 +23,7 @@ class SyncedArray:
 
     Methods
     -------
-    __init__(name="list", max_readers=2)
+    __init__(max_readers=2)
         initializes the list and locks
     __add__(other)
         adds together self and another SyncedArray or standard list
@@ -55,21 +53,17 @@ class SyncedArray:
         returns a copy of the array, as a python list
     """
 
-    def __init__(self, name="list", max_readers=2):
+    def __init__(self, max_readers=2):
         """
         initializes the array and the locks
-        :param name: name of the array (to be shown in logging messages)
-        :type name: str
         :param max_readers: maximum amount of simultaneous readers
         :type max_readers: int
         """
-        if not isinstance(name, str):
-            raise TypeError("SyncedArray.__init__: expected name to be of type str")
+
         if not isinstance(max_readers, int):
-            raise TypeError("SyncedArray.__init__: expected name to be of type int")
+            raise TypeError("SyncedArray.__init__: expected max_readers to be of type int")
 
         self.__array = []
-        self.name = name
         self.max_readers = max_readers
         self.semaphore_lock = threading.Semaphore(value=self.max_readers)
         self.write_lock = threading.Lock()

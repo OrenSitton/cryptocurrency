@@ -1068,13 +1068,13 @@ def main():
     mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
     mining_thread.start()
 
-    sockets.append(server_socket)
     message_queues = {}
 
-    get_most_recent_block = "00047g0000000000000000000000000000000000000000000000000000000000000000000000"
+    get_most_recent_block = "00047c0000000000000000000000000000000000000000000000000000000000000000000000"
 
     while sockets:
-        readable, writable, exceptional = select.select(sockets.array, sockets.array, sockets.array, 0)
+        inputs = socket.array + [server_socket]
+        readable, writable, exceptional = select.select(inputs, sockets.array, sockets.array, 0)
 
         for sock in readable:
             if sock is server_socket:
