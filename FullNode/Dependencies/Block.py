@@ -75,7 +75,7 @@ class Block:
         :return: block in the network format
         :rtype: str
         """
-        network_format = "d{}{}{}{}{}{}{}".format(hexify(self.block_number, 2), hexify(self.timestamp, 8),
+        network_format = "d{}{}{}{}{}{}{}".format(hexify(self.block_number, 6), hexify(self.timestamp, 8),
                                                   hexify(self.difficulty, 2), hexify(self.nonce, 64), self.prev_hash,
                                                   self.merkle_root_hash, hexify(len(self.transactions), 2))
         for transaction in self.transactions:
@@ -105,12 +105,16 @@ class Block:
         message = message[211:]
         block_transactions = []
         for x in range(transaction_count):
-            transaction_length = int(message[:2], 16)
-            transaction = message[2:transaction_length + 2]
+            transaction_length = int(message[:5], 16)
+            transaction = message[2:transaction_length + 5]
             block_transactions.append(transaction)
-            message = message[transaction_length + 2:]
+            message = message[transaction_length + 5:]
+        str_block_transactions = ""
+        for t in block_transactions:
+            str_block_transactions += t + ","
+        str_block_transactions = str_block_transactions[:-1]
         self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
-        block = (block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash, block_transactions)
+        block = (block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash, str_block_transactions, self_hash)
         return Block(block)
 
 

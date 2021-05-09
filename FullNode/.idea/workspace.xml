@@ -2,15 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/FullNode.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/FullNode.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Dependencies/Block.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/Block.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/config.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/methods.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/methods.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/full_node.py" beforeDir="false" afterPath="$PROJECT_DIR$/full_node.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../PeerToPeerNetwork/Peer Discovery Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../PeerToPeerNetwork/Peer Discovery Server.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -198,7 +192,13 @@
       <option name="presentableId" value="LOCAL‎00004" />
       <updated>1620289394235</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL‎00005" summary="Push for targeted connection code test">
+      <created>1620545395726</created>
+      <option name="number" value="LOCAL‎00005" />
+      <option name="presentableId" value="LOCAL‎00005" />
+      <updated>1620545395726</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -218,6 +218,7 @@
     <MESSAGE value="Added error handling in initialize_client function" />
     <MESSAGE value="Fixed get blocks message &amp; peer connection" />
     <MESSAGE value="added string de-hex" />
-    <option name="LAST_COMMIT_MESSAGE" value="added string de-hex" />
+    <MESSAGE value="Push for targeted connection code test" />
+    <option name="LAST_COMMIT_MESSAGE" value="Push for targeted connection code test" />
   </component>
 </project>

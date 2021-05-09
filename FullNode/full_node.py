@@ -1027,7 +1027,7 @@ def mine_new_block(blockchain):
         block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
         message = block.network_format()
-        thread_queue.put("{}{}".format(len(message), message))
+        thread_queue.put("{}{}".format(hexify(len(message), 5), message))
         flags["created new block"] = True
         logging.info("Created new block")
 
