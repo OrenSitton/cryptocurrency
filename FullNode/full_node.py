@@ -61,12 +61,12 @@ Initiation Functions
 """
 
 
-def config(key, directory="Dependencies\\config.txt"):
+def config(key, directory="Dependencies\\config.cfg"):
     """
     returns data from configuration file
     :param key: dictionary key to return value of
     :type key: str
-    :param directory: directory of configuration file, default Dependencies\\config.txt
+    :param directory: directory of configuration file, default Dependencies\\config.cfg
     :type directory: str
     :return: value of dictionary for key
     :rtype: Any

@@ -105,7 +105,7 @@ class Block:
         message = message[211:]
         block_transactions = []
         for x in range(transaction_count):
-            transaction_length = int(message[:2])
+            transaction_length = int(message[:2], 16)
             transaction = message[2:transaction_length + 2]
             block_transactions.append(transaction)
             message = message[transaction_length + 2:]

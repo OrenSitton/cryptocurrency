@@ -74,5 +74,5 @@ def hexify_string(string):
 
 
 def dehexify_string(hex_string):
-    return bytes.fromhex(hexify_string()).decode()
+    return bytes.fromhex(hex_string).decode()
     pass

@@ -2,7 +2,15 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/FullNode.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/FullNode.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/Block.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/Block.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/config.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/methods.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/methods.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/full_node.py" beforeDir="false" afterPath="$PROJECT_DIR$/full_node.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../PeerToPeerNetwork/Peer Discovery Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../PeerToPeerNetwork/Peer Discovery Server.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -24,7 +32,7 @@
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../PeerToPeerNetwork/Peer Discovery Server.py" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../PeerToPeerNetwork" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RunDashboard">
@@ -39,7 +47,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.test (1)">
+  <component name="RunManager" selected="Python.FullNode">
     <configuration name="FullNode" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="FullNode" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -147,8 +155,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.test (1)" />
         <item itemvalue="Python.FullNode" />
+        <item itemvalue="Python.test (1)" />
         <item itemvalue="Python.full_node" />
         <item itemvalue="Python.Peer Discovery Server" />
         <item itemvalue="Python.configure" />
@@ -184,7 +192,13 @@
       <option name="presentableId" value="LOCAL‎00003" />
       <updated>1620289115675</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL‎00004" summary="added string de-hex">
+      <created>1620289394235</created>
+      <option name="number" value="LOCAL‎00004" />
+      <option name="presentableId" value="LOCAL‎00004" />
+      <updated>1620289394235</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

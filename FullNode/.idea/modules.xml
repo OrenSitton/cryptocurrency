@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/FullNode.iml" filepath="$PROJECT_DIR$/.idea/FullNode.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../PeerToPeerNetwork/.idea/PeerToPeerNetwork.iml" filepath="$PROJECT_DIR$/../PeerToPeerNetwork/.idea/PeerToPeerNetwork.iml" />
     </modules>
   </component>
 </project>

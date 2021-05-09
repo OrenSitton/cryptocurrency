@@ -111,7 +111,7 @@ def handle_message(request, ip_addresses, destination):
 
 def main():
     # open config file
-    ip = "localhost"
+    ip = "0.0.0.0"
     port = 8666
     addresses_amount = 3
     ip_addresses = []

@@ -24,7 +24,7 @@ def config(labels, entries, types, window):
         else:
             labels[key] = types[key](value)
 
-    with open("Dependencies\\config.txt", "wb") as file:
+    with open("Dependencies\\config.cfg", "wb") as file:
         pickle.dump(labels, file)
     var = tk.StringVar()
     var.set("Configured")
@@ -55,7 +55,7 @@ def main():
     window.title("Full Node")
     window.resizable(width=False, height=False)
     window.protocol("WM_DELETE_WINDOW", on_closing)
-    with open("Dependencies\\config.txt", "rb") as infile:
+    with open("Dependencies\\config.cfg", "rb") as infile:
         values: dict = pickle.load(infile)
 
     types = {
