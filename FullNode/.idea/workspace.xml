@@ -4,7 +4,6 @@
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Dependencies/Block.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/Block.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/full_node.py" beforeDir="false" afterPath="$PROJECT_DIR$/full_node.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -198,7 +197,13 @@
       <option name="presentableId" value="LOCAL‎00005" />
       <updated>1620545395726</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL‎00006" summary="fixed Block.from_network_format()">
+      <created>1620547124976</created>
+      <option name="number" value="LOCAL‎00006" />
+      <option name="presentableId" value="LOCAL‎00006" />
+      <updated>1620547124976</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -219,6 +224,7 @@
     <MESSAGE value="Fixed get blocks message &amp; peer connection" />
     <MESSAGE value="added string de-hex" />
     <MESSAGE value="Push for targeted connection code test" />
-    <option name="LAST_COMMIT_MESSAGE" value="Push for targeted connection code test" />
+    <MESSAGE value="fixed Block.from_network_format()" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixed Block.from_network_format()" />
   </component>
 </project>

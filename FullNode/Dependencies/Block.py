@@ -59,14 +59,15 @@ class Block:
         self.prev_hash = block[5]
         self.merkle_root_hash = block[6]
 
-        self.transactions = block[7]
+        transactions = block[7]
 
-        if isinstance(self.transactions, str):
-            self.transactions = self.transactions.split(",")
+        if isinstance(transactions, str):
+            transactions = transactions.split(",")
         else:
-            self.transactions = self.transactions.decode().split(",")
-        for x in range(len(self.transactions)):
-            self.transactions[x] = Transaction.from_network_format(self.transactions[x])
+            transactions = transactions.decode().split(",")
+        for x in range(len(transactions)):
+            if transactions[x]:
+                self.transactions.append(Transaction.from_network_format(transactions[x]))
         self.self_hash = block[8]
 
     def network_format(self):
@@ -106,7 +107,7 @@ class Block:
         block_transactions = []
         for x in range(transaction_count):
             transaction_length = int(message[:5], 16)
-            transaction = message[2:transaction_length + 5]
+            transaction = message[5:transaction_length + 5]
             block_transactions.append(transaction)
             message = message[transaction_length + 5:]
         str_block_transactions = ""
@@ -114,7 +115,7 @@ class Block:
             str_block_transactions += t + ","
         str_block_transactions = str_block_transactions[:-1]
         self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
-        block = (block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash, str_block_transactions, self_hash)
+        block = (0, block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash, str_block_transactions, self_hash)
         return Block(block)
 
 
