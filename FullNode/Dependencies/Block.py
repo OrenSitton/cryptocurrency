@@ -59,16 +59,23 @@ class Block:
         self.prev_hash = block[5]
         self.merkle_root_hash = block[6]
 
-        transactions = block[7]
-
-        if isinstance(transactions, str):
-            transactions = transactions.split(",")
+        transaction_data = block[7]
+        self.transactions = []
+        if isinstance(transaction_data, str):
+            transaction_data = transaction_data.split(",")
         else:
-            transactions = transactions.decode().split(",")
-        for x in range(len(transactions)):
-            if transactions[x]:
-                self.transactions.append(Transaction.from_network_format(transactions[x]))
+            transaction_data = transaction_data.decode().split(",")
+        for t in transaction_data:
+            self.transactions.append(Transaction.from_network_format(t))
         self.self_hash = block[8]
+
+    def __str__(self):
+        return_string = "Block Number: {}\nTimestamp: {}\nDifficulty: {}\nNonce: {}\nPrevious Hash: {}\nMerkle Root " \
+                        "Hash: {}\n"
+
+        for t in self.transactions:
+            return_string += "Transaction:\n " + t.__str__() + "\n"
+        return return_string
 
     def network_format(self):
         """
@@ -79,8 +86,11 @@ class Block:
         network_format = "d{}{}{}{}{}{}{}".format(hexify(self.block_number, 6), hexify(self.timestamp, 8),
                                                   hexify(self.difficulty, 2), hexify(self.nonce, 64), self.prev_hash,
                                                   self.merkle_root_hash, hexify(len(self.transactions), 2))
-        for transaction in self.transactions:
-            network_format += hexify(len(transaction.network_format()), 5) + transaction.network_format()
+        for t in self.transactions:
+            if isinstance(t, str):
+                t = Transaction.from_network_format(t)
+            network_format += hexify(len(t.network_format()), 5)
+            network_format += t.network_format()
         return network_format
 
     @staticmethod
@@ -115,7 +125,10 @@ class Block:
             str_block_transactions += t + ","
         str_block_transactions = str_block_transactions[:-1]
         self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
-        block = (0, block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash, str_block_transactions, self_hash)
+        block = (
+            0, block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash,
+            str_block_transactions,
+            self_hash)
         return Block(block)
 
 

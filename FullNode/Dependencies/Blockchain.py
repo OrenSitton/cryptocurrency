@@ -213,7 +213,7 @@ class Blockchain:
         if not isinstance(block_hash, str):
             raise TypeError("Blockchain.delete: expected block_hash to be of type str")
 
-        self.cursor.execute("DELETE FROM Blocks WHERE self_hash={}".format(block_hash))
+        self.cursor.execute("DELETE FROM Blocks WHERE self_hash=\"{}\"".format(block_hash))
 
     def get_block_by_hash(self, block_hash):
         """
@@ -226,7 +226,7 @@ class Blockchain:
         if not isinstance(block_hash, str):
             raise TypeError("Blockchain.get_block_by_hash: expected block_hash to be of type str")
 
-        self.cursor.execute("SELECT * FROM Blocks WHERE self_hash={}".format(block_hash))
+        self.cursor.execute("SELECT * FROM Blocks WHERE self_hash=\"{}\"".format(block_hash))
         result = self.cursor.fetchall()
 
         if result:

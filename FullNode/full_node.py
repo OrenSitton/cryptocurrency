@@ -622,35 +622,37 @@ def handle_message_block(message, blockchain):
     try:
         block = Block.from_network_format(message)
     except ValueError:
+        logging.info("Message is an invavlid block [message is in an incorrect format]")
         return None, -1
 
     # check if block number relevant
     if block.block_number < blockchain.__len__() - 1:
-        logging.info("Message is an invalid block")
+        logging.info("Message is an invalid block [block number is not relevant]")
         return None, -1
 
     # check if block already received
     if blockchain.get_block_by_hash(block.self_hash):
-        logging.info("Message is an invalid block")
+        logging.info("Message is an invalid block [block already received]")
         return None, -1
 
-    # check if previous block exists
-    previous_block = blockchain.get_block_by_hash(block.prev_hash)
-    if not previous_block and block.block_number > blockchain.__len__():
-        return build_get_blocks_message(blockchain.__len__(), block.block_number), 1
-    elif not previous_block:
-        logging.info("Message is an invalid block")
-        return None, -1
+    if block.block_number != 1:
+        # check if previous block exists
+        previous_block = blockchain.get_block_by_hash(block.prev_hash)
+        if not previous_block and block.block_number > blockchain.__len__():
+            return build_get_blocks_message(blockchain.__len__(), block.block_number), 1
+        elif not previous_block:
+            logging.info("Message is an invalid block [block is not in consensus chain]")
+            return None, -1
 
-    # validate time created
-    if block.timestamp <= previous_block.timestamp:
-        logging.info("Message is an invalid block")
-        return None, -1
+        # validate time created
+        if block.timestamp <= previous_block.timestamp:
+            logging.info("Message is an invalid block [block was created before previous block]")
+            return None, -1
 
     # validate difficulty
     if block.block_number <= 2016:
         if block.difficulty != config("default difficulty"):
-            logging.info("Message is an invalid block")
+            logging.info("Message is an invalid block [block's difficulty is wrong]")
             return None, -1
     else:
         maximum_block = blockchain.get_block_by_hash(block.prev_hash)
@@ -662,7 +664,7 @@ def handle_message_block(message, blockchain):
         delta_t = maximum_block.timestamp - minimum_block.timestamp
         if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_hash(
                 maximum_block.prev_hash).difficulty):
-            logging.info("Message is an invalid block")
+            logging.info("Message is an invalid block [block's difficulty is wrong]")
             return None, -1
 
     # validate nonce #
@@ -671,37 +673,37 @@ def handle_message_block(message, blockchain):
     int_hash = int(b_hash, 16)
 
     if int_hash > maximum:
-        logging.info("Message is an invalid block")
+        logging.info("Message is an invalid block [hash does not match difficulty]")
         return None, -1
 
     # validate first transaction
     if len(block.transactions[0].inputs):
-        logging.info("Message is an invalid block")
+        logging.info("Message is an invalid block [first transaction contains inputs]")
         return None, -1
     elif len(block.transactions[0].outputs) != 1:
-        logging.info("Message is an invalid block")
+        logging.info("Message is an invalid block [first transaction has more than one output]")
         return None, -1
     elif block.transactions[0].outputs[0][1] != config("block reward"):
-        logging.info("Message is an invalid block")
+        logging.info("Message is an invalid block [block reward is incorrect]")
         return None, -1
 
     # validate transactions
-    for transaction in block.transactions[1:]:
+    for i, transaction in enumerate(block.transactions[1:]):
         if not validate_transaction(transaction, blockchain, block.prev_hash)[0]:
-            logging.info("Message is an invalid block")
+            logging.info("Message is an invalid block [transaction {} is invalid]".format(i))
             return None, -1
 
     # validate merkle root hash
     transaction_hash = calculate_merkle_root_hash(block.transactions)
 
     if block.merkle_root_hash != transaction_hash:
-        logging.info("Message is an invalid block")
+        logging.info("Message is an invalid block [merkle root hash is invalid]")
         return None, -1
 
     # validate transactions are in order
     for i in range(1, len(block.transactions) - 1):
         if block.transactions[i] < block.transactions[i + 1]:
-            logging.info("Message is an invalid block")
+            logging.info("Message is an invalid block [transactions are not in order]")
             return None, -1
 
     # check for overlaps
@@ -709,7 +711,7 @@ def handle_message_block(message, blockchain):
         for t2 in range(1, len(block.transactions)):
             if not t1 == t2:
                 if block.transactions[t1].overlap(block.transactions[t2]):
-                    logging.info("Message is an invalid block")
+                    logging.info("Message is an invalid block [block contains two outputs with the same key]")
                     return None, -1
 
     # append to database
@@ -717,7 +719,8 @@ def handle_message_block(message, blockchain):
                       block.merkle_root_hash, block.transactions, block.self_hash)
 
     # delete blocks if consensus long enough
-    if blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash == block.self_hash:
+    if blockchain.get_block_consensus_chain(
+            blockchain.__len__()).self_hash == block.self_hash and block.block_number > 2:
         # block is in consensus
         for block2 in blockchain.__getitem__(block.block_number - 2):
             if block2.self_hash != blockchain.get_block_consensus_chain(block.block_number - 2).self_hash:
@@ -733,8 +736,8 @@ def handle_message_block(message, blockchain):
             transactions.remove(t)
 
     # return message
-    logging.info("MEssage is a valid block")
-    return "{}{}".format(len(block.network_format()), block.network_format())
+    logging.info("Message is a valid block")
+    return "{}{}".format(hexify(len(block.network_format()), 5), block.network_format())
 
 
 def handle_message_block_request(message, blockchain):
@@ -1095,50 +1098,64 @@ def main():
                 message_queues[address[0]].put(get_most_recent_block)
 
             else:
-                size = sock.recv(5).decode()
-                if size:
-
-                    message = sock.recv(int(size, 16)).decode()
-                    reply = handle_message(message, blockchain)
-
-                    if reply[1] == -1:
-                        logging.debug("No reply")
-
-                    if reply[1] == 1:
-                        logging.debug("Replying to sender")
-                        if sock.getpeername()[0] not in message_queues:
-                            message_queues[sock.getpeername()[0]] = queue.Queue()
-                        message_queues[sock.getpeername()[0]].put(reply[0])
-
-                    elif reply[1] == 2:
-                        logging.debug("Sending reply to all nodes")
-
-                        for other_sock in sockets:
-                            if other_sock.getpeername()[0] not in message_queues:
-                                message_queues[other_sock.getpeername()[0]] = queue.Queue()
-                            message_queues[other_sock.getpeername()[0]].put(reply[0])
-                else:
-                    logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
-                    address = sock.getpeername()[0]
+                try:
+                    size = sock.recv(5).decode()
+                except ConnectionResetError:
                     sock.close()
                     sockets.remove(sock)
 
-                    if address in message_queues:
-                        del message_queues[address]
+                else:
+                    if size:
+                        try:
+                            message = sock.recv(int(size, 16)).decode()
+                        except ConnectionResetError:
+                            logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
+                            sock.close()
+                            sockets.remove(sock)
 
-                    for other_sock in sockets:
-                        if other_sock.getpeername()[0] == address:
-                            other_sock.close()
-                            sockets.remove(other_sock)
+                        else:
+                            reply = handle_message(message, blockchain)
+
+                            if reply[1] == -1:
+                                logging.debug("No reply")
+
+                            if reply[1] == 1:
+                                logging.debug("Replying to sender")
+                                if sock.getpeername()[0] not in message_queues:
+                                    message_queues[sock.getpeername()[0]] = queue.Queue()
+                                message_queues[sock.getpeername()[0]].put(reply[0])
+
+                            elif reply[1] == 2:
+                                logging.debug("Sending reply to all nodes")
+
+                                for other_sock in sockets:
+                                    if other_sock.getpeername()[0] not in message_queues:
+                                        message_queues[other_sock.getpeername()[0]] = queue.Queue()
+                                    message_queues[other_sock.getpeername()[0]].put(reply[0])
+                    else:
+                        logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
+                        address = sock.getpeername()[0]
+                        sock.close()
+                        sockets.remove(sock)
+
+                        if address in message_queues:
+                            del message_queues[address]
+
+                        for other_sock in sockets:
+                            if other_sock.getpeername()[0] == address:
+                                other_sock.close()
+                                sockets.remove(other_sock)
 
         for sock in writable:
-            address = sock.getpeername()[0]
-
+            try:
+                address = sock.getpeername()[0]
+            except OSError:
+                sock.close()
             if address in message_queues:
                 if not message_queues[address].empty():
                     message = message_queues[address].get()
                     sock.send(message.encode())
-                    logging.info("[{}, {}]: Send message to node".format(address, sock.getpeername()[1]))
+                    logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
 
         for sock in exceptional:
             address = sock.getpeername()[0]
@@ -1177,6 +1194,20 @@ def main():
         if flags["exception"]:
             # TODO: handle exceptions
             pass
+
+        sock_removals = []
+
+        for address in message_queues:
+            exists = False
+            for sock in sockets:
+                if sock.getpeername()[0] == address:
+                    exists = True
+            if not exists:
+                sock_removals.append(address)
+
+        for address in sock_removals:
+            logging.info("[{}, N/A] Node disconnected".format(address))
+            del message_queues[address]
 
 
 if __name__ == '__main__':
