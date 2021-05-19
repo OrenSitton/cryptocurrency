@@ -4,10 +4,12 @@ File: Peer Discovery Server.py
 Python Version: 3.8
 Description: Server used by nodes to discover other nodes in the network (peer discovery)
 """
-import socket
-import select
 import logging
+import queue
+import socket
 import sys
+
+import select
 
 
 def initialize_server(ip, port):
@@ -110,21 +112,30 @@ def handle_message(request, ip_addresses, destination):
 
 
 def main():
-    # open config file
+    if len(sys.argv) != 3:
+        raise RuntimeError("Peer Discovery Server requires exactly 2 arguments")
+
     ip = "0.0.0.0"
-    port = 8666
+    port = int(sys.argv[1])
+
+    # maximum amount of addresses server will send nodes
     addresses_amount = 3
+
+    # list to store node addresses
     ip_addresses = []
-    count = 0
+
+    # amount of ip addresses currently stored
+    count = int(sys.argv[2])
     for x in range(addresses_amount + 1):
         ip_addresses.append("")
-    # initiate server socket
+
     server_socket = initialize_server(ip, port)
 
-    # main loop
-
+    # lists of sockets to listen to
     inputs = [server_socket]
     outputs = []
+
+    # lists of messages to send to clients
     message_queues = {}
 
     while inputs:
@@ -152,9 +163,10 @@ def main():
                                      .format(sock.getpeername()[0], sock.getpeername()[1]))
                         data = sock.recv(int(data, 16)).decode()
                         if sock in message_queues:
-                            message_queues[sock] = message_queues[sock] + [data]
+                            message_queues[sock].put(data)
                         else:
-                            message_queues[sock] = [data]
+                            message_queues[sock] = queue.Queue()
+                            message_queues[sock].put(data)
 
                         if sock not in outputs:
                             outputs.append(sock)
@@ -182,19 +194,16 @@ def main():
                         del message_queues[sock]
 
         for sock in writable:
-            if sock in message_queues:
-                messages = message_queues[sock]
-                next_msg = messages[0]
-                messages.remove(next_msg)
-                message_queues[sock] = messages
-                if len(messages) == 0:
-                    del message_queues[sock]
-                    outputs.remove(sock)
-
+            if not message_queues[sock].empty():
+                next_msg = message_queues[sock].get()
                 reply = handle_message(next_msg, ip_addresses, sock.getpeername()[0])
                 sock.send(reply.encode())
                 logging.info("Sent message to client at ({}, {})"
                              .format(sock.getpeername()[0], sock.getpeername()[1]))
+
+                if message_queues[sock].empty():
+                    del message_queues[sock]
+                    outputs.remove(sock)
 
         for sock in exceptional:
             inputs.remove(sock)
