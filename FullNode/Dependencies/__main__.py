@@ -41,21 +41,18 @@ try:
 
 except ModuleNotFoundError:
     try:
-        from __init__ import Block
-        from __init__ import Blockchain
-        from __init__ import SyncedDictionary
-        from __init__ import SyncedArray
-        from __init__ import Transaction
-        from __init__ import calculate_hash
-        from __init__ import hexify
-        from __init__ import hexify_string
-        from __init__ import dehexify_string
+        from FullNode.Dependencies import Block
+        from FullNode.Dependencies import Blockchain
+        from FullNode.Dependencies import SyncedDictionary
+        from FullNode.Dependencies import SyncedArray
+        from FullNode.Dependencies import Transaction
+        from FullNode.Dependencies import calculate_hash
+        from FullNode.Dependencies import hexify
+        from FullNode.Dependencies import hexify_string
+        from FullNode.Dependencies import dehexify_string
     except ModuleNotFoundError:
         logging.critical("Could not find dependencies")
         exit(-1)
-
-
-
 
 """
 Global Variables
@@ -339,6 +336,32 @@ def calculate_merkle_root_hash(block_transactions):
     return block_transactions[0]
 
 
+def calculate_message_length(message):
+    length_size = 5
+
+    resume = True
+
+    while resume:
+        try:
+            hexify(len(message), length_size)
+
+        except ValueError:
+            length_size *= 2
+
+        else:
+            if hexify(len(message), length_size).replace('f', "") == "":
+                length_size *= 2
+            else:
+                resume = False
+
+    msg_length = ""
+    for x in range(5, length_size, 5):
+        msg_length += "f" * x
+
+    msg_length += hexify(len(message), length_size)
+    return msg_length
+
+
 def validate_transaction(transaction, blockchain, previous_block_hash=""):
     """
     validates the transaction's format & data
@@ -618,7 +641,7 @@ def handle_message(message, blockchain):
     if message_type not in message_handling_functions:
         logging.debug("Message is invalid (unrecognized message type)")
         reply = build_error_message("unrecognized message type")
-        reply = "{}{}".format(hexify(len(reply), 5), reply)
+        reply = "{}{}".format(calculate_message_length(reply), reply)
         return reply, 1
     else:
         return message_handling_functions[message_type]()
@@ -757,7 +780,7 @@ def handle_message_block(message, blockchain):
 
     # return message
     logging.info("Message is a valid block")
-    return "{}{}".format(hexify(len(block.network_format()), 5), block.network_format())
+    return "{}{}".format(calculate_message_length(block.network_format()), block.network_format()), 1
 
 
 def handle_message_block_request(message, blockchain):
@@ -798,7 +821,7 @@ def handle_message_block_request(message, blockchain):
         if block:
             reply = block.network_format()
             logging.info("Message is a valid block request")
-            return "{}{}".format(hexify(len(reply), 5), reply), 1
+            return "{}{}".format(calculate_message_length(reply), reply), 1
         else:
             logging.info("Message is an invalid block request")
             return None, -1
@@ -822,9 +845,18 @@ def handle_message_blocks(message, blockchain):
     block_count = int(message[1:7], 16)
     message = message[7:]
     for i in range(block_count):
-        block_size = message[:5]
-        handle_message_block(message[5: 5 + block_size], blockchain)
-        message = message[5 + block_size:]
+        length_size = 5
+        block_size = message[:length_size]
+
+        while block_size.replace("f", "") == "":
+            message = message[length_size:]
+            length_size *= 2
+            block_size = message[:length_size]
+
+        block_size = int(block_size, 16)
+
+        handle_message_block(message[length_size: length_size + block_size], blockchain)
+        message = message[length_size + block_size:]
 
 
 def handle_message_blocks_request(message, blockchain):
@@ -849,9 +881,9 @@ def handle_message_blocks_request(message, blockchain):
     for i in range(first_block, last_block + 1):
         block = blockchain.get_block_consensus_chain(i)
         if block:
-            reply += "{}{}".format(len(block.network_format()), block.network_format())
+            reply += "{}{}".format(calculate_message_length(block.network_format()), block.network_format())
     logging.info("Message is a block request message")
-    return reply, 1
+    return "{}{}".format(calculate_message_length(reply), reply), 1
 
 
 def handle_message_error(message):
@@ -941,7 +973,7 @@ def handle_message_transaction(message, blockchain):
         if msg_validity[0]:
             transactions.append(transaction)
             logging.info("Message is a transaction message")
-            return "{}{}".format(len(message), message), 2
+            return "{}{}".format(hexify(len(message), 5), message), 2
         else:
             logging.info("Message is an invalid transaction message [{}]".format(msg_validity[1]))
             return None, -1
@@ -1050,7 +1082,7 @@ def mine_new_block(blockchain):
         block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
         message = block.network_format()
-        thread_queue.put("{}{}".format(hexify(len(message), 5), message))
+        thread_queue.put("{}{}".format(calculate_message_length(message), message))
         flags["created new block"] = True
         logging.info("Created new block")
 
@@ -1126,10 +1158,16 @@ def main():
 
                 else:
                     if size:
+                        size_length = 5
+                        while len(size.replace('f', "")) == 0:
+                            size_length *= 2
+                            size = sock.recv(size_length).decode()
+
                         try:
                             message = sock.recv(int(size, 16)).decode()
                         except ConnectionResetError:
-                            logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
+                            logging.info(
+                                "[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
                             sock.close()
                             sockets.remove(sock)
 
