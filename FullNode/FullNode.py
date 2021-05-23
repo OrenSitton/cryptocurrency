@@ -13,60 +13,33 @@ from tkinter import messagebox
 process = ""
 
 
-def config(labels, entries, types):
-    for i, key in enumerate(labels):
-        entry = entries[i][1]
-        value = entry.get()
-        try:
-            types[key](value)
-        except ValueError:
-            pass
-        else:
-            labels[key] = types[key](value)
-
-    with open("Dependencies\\config.cfg", "wb") as file:
-        pickle.dump(labels, file)
-    var = tk.StringVar()
-    var.set("Configured")
-    msg = messagebox.showinfo(title="Configured", message="Configured!")
-
-    terminate_full_node()
-
-
-def run_full_node():
+def run():
     global process
     if not isinstance(process, subprocess.Popen):
-        logging.info("Initiating process...")
+        logging.info("Launching full node. . .")
         process = subprocess.Popen(['python', 'Dependencies\\__main__.py'])
     else:
-        logging.info("Process already initiated...")
+        logging.info("Process already initiated. . .")
 
 
-def terminate_full_node():
+def terminate(silent=False):
     global process
     if isinstance(process, subprocess.Popen):
-        logging.info("Terminating process...")
+        if not silent:
+            logging.info("Terminating process. . . ")
         process.kill()
         process = ""
     else:
-        logging.info("Process already terminated...")
-    pass
+        if not silent:
+            logging.info("Process already terminated. . .")
 
 
-def on_closing():
-    """
-    :return:
-    :rtype:
-    """
-    terminate_full_node()
-    exit()
+def config():
+    config_window = tk.Tk()
+    config_window.title("")
+    config_window.iconbitmap("Dependencies\\configure.ico")
+    config_window.resizable(width=False, height=False)
 
-
-def main():
-    window = tk.Tk()
-    window.title("Full Node")
-    window.resizable(width=False, height=False)
-    window.protocol("WM_DELETE_WINDOW", on_closing)
     with open("Dependencies\\config.cfg", "rb") as infile:
         values: dict = pickle.load(infile)
 
@@ -88,28 +61,75 @@ def main():
     for key in values:
         var = tk.StringVar()
         var.set(values[key])
-        entry = tk.Entry(width=30, textvariable=var)
-        entry.bind("<Button-1>")
-        label = tk.Label(text=key, justify=tk.LEFT, anchor="w")
+        entry = tk.Entry(config_window, width=30)
+        entry.insert(tk.END, values[key])
+        label = tk.Label(config_window, text=key, justify=tk.LEFT, anchor="w")
         entries.append((label, entry))
 
     for i, entry in enumerate(entries):
         entry[0].grid(sticky=tk.W, column=0, row=i)
         entry[1].grid(column=1, row=i)
 
-    run_button = tk.Button(window, width=10, text="configure", command=lambda: config(values, entries, types))
+    run_button = tk.Button(config_window, width=10, text="⚙", command=lambda: configure(values, entries, types, config_window))
     run_button.grid(row=len(values), column=0)
 
-    terminate_button = tk.Button(window, width=10, text="terminate", command=lambda: terminate_full_node())
-    terminate_button.grid(row=len(values) + 2, column=1)
+    config_window.mainloop()
 
-    space_frame = tk.Frame(window, width=10, height=10)
-    space_frame.grid(row=len(values) + 1, column=0)
 
-    run_button = tk.Button(window, width=10, text="run", command=lambda: run_full_node())
-    run_button.grid(row=len(values) + 2, column=0)
+def configure(labels, entries, types, window):
+    for i, key in enumerate(labels):
+        entry = entries[i][1]
+        value = entry.get()
+        try:
+            types[key](value)
+        except ValueError:
+            pass
+        else:
+            if value:
+                labels[key] = types[key](value)
+    with open("Dependencies\\config.cfg", "wb") as file:
+            pickle.dump(labels, file)
+    window.destroy()
+    messagebox.showinfo(title="Configured", message="Configured!")
+    terminate(silent=True)
 
-    tk.mainloop()
+
+
+def on_closing():
+    """
+    :return:
+    :rtype:
+    """
+    terminate(silent=True)
+    exit()
+
+
+def main():
+    myFont = ("Times New Roman", 20, "bold")
+    window = tk.Tk()
+    window.title("SittCoin")
+    window.wm_iconbitmap('Dependencies\\miner.ico')
+    window.resizable(width=False, height=False)
+    window.protocol("WM_DELETE_WINDOW", on_closing)
+
+    title = tk.Label(window, width=35, text="SittCoin Full Node")
+    title.pack(side=tk.TOP)
+
+    spacer = tk.Frame(window, width=1, height=10)
+    spacer.pack(side=tk.TOP)
+
+    run_button = tk.Button(window, width=3, text="▶", font=myFont, command=lambda: run())
+    run_button.pack(side=tk.LEFT)
+
+    configure_button = tk.Button(window, width=3, text="⚙", command=lambda: config())
+    configure_button['font'] = myFont
+    configure_button.pack(side=tk.RIGHT)
+
+    terminate_button = tk.Button(window, width=3, text="■", command=lambda: terminate())
+    terminate_button['font'] = myFont
+    terminate_button.pack(side=tk.TOP)
+    window.mainloop()
+
     pass
 
 

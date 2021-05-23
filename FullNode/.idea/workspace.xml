@@ -2,15 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/FullNode.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/FullNode.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/Orens.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/Orens.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/BlockTest.py" beforeDir="false" afterPath="$PROJECT_DIR$/BlockTest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/Flags.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/SyncedDictionary.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/configure.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.cfg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/full_node.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__main__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../testFiles/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/../testFiles/test3.py" afterDir="false" />
     </list>
@@ -36,16 +32,17 @@
   </component>
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../Wallet Server" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/Dependencies" />
     <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
   </component>
   <component name="RecentsManager">
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet Server" />
-      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet\Dependencies" />
-    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
+    </key>
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet Server" />
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet\Dependencies" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -60,7 +57,28 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.SyncedDictionary">
+  <component name="RunManager" selected="Python.BlockTest">
+    <configuration name="BlockTest" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="FullNode" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/BlockTest.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="FullNode" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="FullNode" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -124,40 +142,19 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Wallet" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="Wallet" />
+    <configuration name="__main__" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="FullNode" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../Wallet" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Dependencies" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../Wallet/Wallet.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="test4" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="testFiles" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../testFiles" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../testFiles/test4.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Dependencies/__main__.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -169,17 +166,17 @@
     <list>
       <item itemvalue="Python.FullNode" />
       <item itemvalue="Python.Peer Discovery Server" />
-      <item itemvalue="Python.test4" />
-      <item itemvalue="Python.Wallet" />
       <item itemvalue="Python.SyncedDictionary" />
+      <item itemvalue="Python.BlockTest" />
+      <item itemvalue="Python.__main__" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.FullNode" />
+        <item itemvalue="Python.BlockTest" />
+        <item itemvalue="Python.__main__" />
         <item itemvalue="Python.SyncedDictionary" />
         <item itemvalue="Python.Peer Discovery Server" />
-        <item itemvalue="Python.FullNode" />
-        <item itemvalue="Python.Wallet" />
-        <item itemvalue="Python.test4" />
       </list>
     </recent_temporary>
   </component>
