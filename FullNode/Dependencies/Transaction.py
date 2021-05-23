@@ -5,7 +5,14 @@ Python Version: 3
 """
 from datetime import datetime
 from hashlib import sha256
-from Dependencies.methods import hexify
+
+try:
+    from Dependencies.methods import hexify
+except ModuleNotFoundError:
+    try:
+        from FullNode.Dependencies.methods import hexify
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError
 
 
 class Transaction:

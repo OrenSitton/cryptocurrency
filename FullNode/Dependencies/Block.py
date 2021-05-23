@@ -3,9 +3,16 @@ Author: Oren Sitton
 File: Block.py
 Python Version: 3
 """
+try:
+    from Dependencies.Transaction import Transaction
+    from Dependencies.methods import calculate_hash, hexify
+except ModuleNotFoundError:
+    try:
+        from FullNode.Dependencies.Transaction import Transaction
+        from FullNode.Dependencies.methods import calculate_hash, hexify
 
-from Dependencies.Transaction import Transaction
-from Dependencies.methods import calculate_hash, hexify
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError
 
 
 class Block:

@@ -6,8 +6,15 @@ Python Version: 3
 
 from mysql import connector
 
-from Dependencies.Block import Block
-from Dependencies.Transaction import Transaction
+try:
+    from Dependencies.Block import Block
+    from Dependencies.Transaction import Transaction
+except ModuleNotFoundError:
+    try:
+        from FullNode.Dependencies.Block import Block
+        from FullNode.Dependencies.Transaction import Transaction
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError
 
 
 class Blockchain:

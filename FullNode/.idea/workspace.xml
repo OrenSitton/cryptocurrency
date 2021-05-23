@@ -3,8 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__main__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../testFiles/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/../testFiles/test3.py" afterDir="false" />
     </list>

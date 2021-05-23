@@ -16,13 +16,13 @@ try:
 
 except ModuleNotFoundError:
     try:
-        from Blockchain import Blockchain
-        from Block import Block
-        from SyncedArray import SyncedArray
-        from Transaction import Transaction
-        from SyncedDictionary import SyncedDictionary
+        from FullNode.Dependencies.Blockchain import Blockchain
+        from FullNode.Dependencies.Block import Block
+        from FullNode.Dependencies.SyncedArray import SyncedArray
+        from FullNode.Dependencies.Transaction import Transaction
+        from FullNode.Dependencies.SyncedDictionary import SyncedDictionary
 
-        from methods import *
+        from FullNode.Dependencies.methods import *
 
     except ModuleNotFoundError:
         logging.critical("Could not find dependencies")
