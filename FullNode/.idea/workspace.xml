@@ -3,6 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.cfg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../testFiles/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/../testFiles/test3.py" afterDir="false" />
     </list>
@@ -96,7 +97,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Peer Discovery Server" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="PeerDiscoveryServer" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="PeerToPeerNetwork" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -108,8 +109,8 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\PeerToPeerNetwork\PeerDiscoveryServer.py" />
-      <option name="PARAMETERS" value="8666 3" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../PeerToPeerNetwork/PeerDiscoveryServer.py" />
+      <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -161,18 +162,18 @@
     </configuration>
     <list>
       <item itemvalue="Python.FullNode" />
-      <item itemvalue="Python.Peer Discovery Server" />
       <item itemvalue="Python.SyncedDictionary" />
       <item itemvalue="Python.BlockTest" />
       <item itemvalue="Python.__main__" />
+      <item itemvalue="Python.PeerDiscoveryServer" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.FullNode" />
+        <item itemvalue="Python.PeerDiscoveryServer" />
         <item itemvalue="Python.BlockTest" />
         <item itemvalue="Python.__main__" />
         <item itemvalue="Python.SyncedDictionary" />
-        <item itemvalue="Python.Peer Discovery Server" />
       </list>
     </recent_temporary>
   </component>
@@ -229,7 +230,13 @@
       <option name="presentableId" value="LOCAL‎00007" />
       <updated>1621422315337</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL‎00008" summary="added import handling">
+      <created>1621791037621</created>
+      <option name="number" value="LOCAL‎00008" />
+      <option name="presentableId" value="LOCAL‎00008" />
+      <updated>1621791037621</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -252,6 +259,7 @@
     <MESSAGE value="Push for targeted connection code test" />
     <MESSAGE value="fixed Block.from_network_format()" />
     <MESSAGE value="Added system argument handling to PeerDiscoveryServer.py, and changed message handling to queue based." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added system argument handling to PeerDiscoveryServer.py, and changed message handling to queue based." />
+    <MESSAGE value="added import handling" />
+    <option name="LAST_COMMIT_MESSAGE" value="added import handling" />
   </component>
 </project>

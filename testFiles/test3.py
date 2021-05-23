@@ -4,7 +4,7 @@ File: test3.py
 Python Version: 3
 Description: 
 """
-import socket
+
 
 
 def main():

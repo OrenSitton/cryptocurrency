@@ -658,7 +658,8 @@ def handle_message_block(message, blockchain):
         # check if previous block exists
         previous_block = blockchain.get_block_by_hash(block.prev_hash)
         if not previous_block and block.block_number > blockchain.__len__():
-            return build_get_blocks_message(blockchain.__len__(), block.block_number), 1
+            msg = build_get_blocks_message(blockchain.__len__(), block.block_number)
+            return "{}{}".format(hexify(len(message), 5), msg), 1
         elif not previous_block:
             logging.info("Message is an invalid block [block is not in consensus chain]")
             return None, -1

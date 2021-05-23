@@ -1,136 +1,235 @@
 """
 Author: Oren Sitton
-File: wallet_server.py
+File: Full Node.py
 Python Version: 3
-Description: 
+Description:
 """
-
-
+import datetime
 import logging
+import math
+import pickle
 import queue
 import socket
 import threading
-import datetime
-import math
 from hashlib import sha256
 from time import sleep
+
 import select
-import pickle
+
+try:
+    from crypto.Hash import SHA256
+    from crypto.PublicKey import RSA
+    from crypto.Signature import PKCS1_v1_5
+except ModuleNotFoundError:
+    try:
+        from Crypto.Hash import SHA256
+        from Crypto.PublicKey import RSA
+        from Crypto.Signature import PKCS1_v1_5
+    except ModuleNotFoundError:
+        exit(-1)
+
+from Dependencies import Block
 from Dependencies import Blockchain
+from Dependencies import Flags
 from Dependencies import SyncedArray
 from Dependencies import Transaction
-from Dependencies import Flags
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
+from Dependencies import calculate_hash
+from Dependencies import hexify
+from Dependencies import hexify_string
+from Dependencies import dehexify_string
 
 """
 Global Variables
 ----------------
 client_sockets : SyncedArray
-    list of current client sockets
+    list of current client sockets connected to other node's server sockets
 transactions : SyncedArray
     list of pending transactions
-inputs : SyncedArray
-    list of current input sockets
-outputs : SyncedArray
-    list of current output sockets
 thread_queue : queue.Queue
-    queue for data returned from threads
+    queue to load return value from mining thread
 flags : Flags
-    dictionary for thread initiation / termination flags
+    flags object to coordinate between threads
 """
 
-client_sockets = SyncedArray(name="client List")
-transactions = SyncedArray(name="transaction List")
-inputs = SyncedArray(name="input List")
-outputs = SyncedArray(name="output List")
-thread_queue = queue.SimpleQueue()
+sockets = SyncedArray()
+thread_queue = queue.Queue()
 flags = Flags()
 
 """
 Initiation Functions
---------------------
-
 """
 
 
-def get_config_data(data):
-    with open("Dependencies\\config.txt", "rb") as file:
-        configuration = pickle.load(file)
-
-    return configuration.get(data)
-
-
-def initiate_server(ip, port):
+def config(key, directory="Dependencies\\config.cfg"):
     """
-    initializes server socket object to address,
-    non-blocking and to accept new connections
-    :param ip: ipv4 address
+    returns data from configuration file
+    :param key: dictionary key to return value of
+    :type key: str
+    :param directory: directory of configuration file, default Dependencies\\config.cfg
+    :type directory: str
+    :return: value of dictionary for key
+    :rtype: Any
+    :raises: FileNotFoundError: configuration file not found at directory
+    :raises: TypeError: unpickled object is not a dictionary
+    """
+    if not isinstance(key, str):
+        raise TypeError("config: expected key to be of type str")
+    if not isinstance(directory, str):
+        raise TypeError("config: expected directory to be of type str")
+    try:
+        with open(directory, "rb") as file:
+            configuration = pickle.load(file)
+    except FileNotFoundError:
+        raise FileNotFoundError("config: configuration file not found at {}".format(directory))
+    else:
+        if not isinstance(configuration, dict):
+            raise TypeError("config: expected file to contain pickled dict")
+        else:
+            return configuration.get(key)
+
+
+def initialize_client(ip, port):
+    """
+    initializes client socket object to address and appends it to client_socket list
+    :param ip: ipv4 address to initialize client socket to
     :type ip: str
-    :param port: tcp port
+    :param port: tcp port to initialize client socket to
     :type port: int
-    :return: server socket
+    :return: client socket object
     :rtype: socket.socket
     """
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setblocking(False)
-    server_socket.bind((ip, port))
-    server_socket.listen(5)
-    return server_socket
+    if not isinstance(ip, str):
+        raise TypeError("initialize_client: expected ip to be of type str")
+    if not isinstance(port, int):
+        raise TypeError("initialize_client: expected port to be of type int")
 
-
-def initiate_client(ip, port):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
+        logging.info("Attempting connection to [{}, {}]".format(ip, port))
         client_socket.connect((ip, port))
-        logging.info("Connected to node [{}, {}]"
+        logging.info("[{}, {}]: Connected client socket to node"
                      .format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
 
-    except ConnectionRefusedError:
-        logging.info("Connection attempt refused [{}, {}]"
-                     .format(ip, port))
+    except (ConnectionRefusedError, socket.gaierror, TimeoutError, WindowsError) as e:
+        logging.info("[{}, {}]: Connection attempt refused [{}]"
+                     .format(ip, port, str(e)))
 
     else:
-        client_sockets.append(client_socket)
+        sockets.append(client_socket)
 
 
-def initiate_clients(addresses, port):
+def initialize_clients(addresses, port):
+    """
+    initializes client socket objects to addresses and appends them to client_socket list
+    :param addresses: ipv4 addresses to initialize client sockets to
+    :type addresses: list
+    :param port: tcp port to initialize client sockets to
+    :type port: int
+    """
+    if not isinstance(addresses, list):
+        raise TypeError("initialize_clients: expected addresses to be of type list")
+    if not isinstance(port, int):
+        raise TypeError("initialize_clients: expected port to be of type int")
     threads = []
     for i, address in enumerate(addresses):
-        if address != get_config_data("ip_address"):
-            thread = threading.Thread(name="Client Connection Thread {}".format(i + 1), target=initiate_client,
-                                      args=(address, port,))
-            thread.start()
-            threads.append(thread)
+        if address != config("ip_address"):
+            exists = False
+            for sock in sockets.array:
+                try:
+                    if sock.getpeername()[0] == address:
+                        exists = True
+                except OSError:
+                    pass
+                    # sock is server socket
+            if not exists:
+                thread = threading.Thread(name="Client Connection Thread {}".format(i + 1), target=initialize_client,
+                                          args=(address, port,))
+                thread.start()
+                threads.append(thread)
 
     for thread in threads:
         thread.join()
 
     logging.info("{} nodes accepted connection"
-                 .format(len(client_sockets)))
+                 .format(len(sockets)))
+
+
+def initialize_server(ip, port):
+    """
+    initializes server socket object to address
+    :param ip: ipv4 address to initialize server socket to
+    :type ip: str
+    :param port: tcp port to initialize server socket to
+    :type port: int
+    :return: server socket object
+    :rtype: socket.socket
+    """
+    if not isinstance(ip, str):
+        raise TypeError("initialize_server: expected ip to be of type str")
+    if not isinstance(port, int):
+        raise TypeError("initialize_server: expected port to be of type int")
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # server_socket.setblocking(False)
+        server_socket.bind((ip, port))
+        server_socket.listen(5)
+    except OSError:
+        return None
+    else:
+        return server_socket
 
 
 def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
+    """
+    seeds nodes from DNS seeding server, initializes client socket objects to received addresses, and appends them to
+    client_socket list
+    :param dns_ip: ipv4 address of DNS seeding server
+    :type dns_ip: str
+    :param dns_port: tcp port of DNS seeding server
+    :type dns_port: int
+    :param peer_port: tcp port to initialize client sockets to
+    :type peer_port: int
+    :keyword attempts: amount of times to attempt connection to the DNS seeding server
+    :keyword type attempts: int
+    :keyword delay: seconds of delay between attempts to connect to DNS seeding server
+    :keyword type delay: int
+    """
+    if not isinstance(dns_ip, str):
+        raise TypeError("seed_clients: expected dns_ip to be of type str")
+    if not isinstance(dns_port, int):
+        raise TypeError("seed_clients: expected dns_port to be of type int")
+    if not isinstance(peer_port, int):
+        raise TypeError("seed_clients: expected peer_port to be of type int")
+
     if kwargs.get("attempts"):
+        if not isinstance(kwargs.get("attempts"), int):
+            raise TypeError("seed_clients: expected attempts to be of type int")
         attempts = kwargs.get("attempts")
     else:
         attempts = 5
 
     if kwargs.get("delay"):
+        if not isinstance(kwargs.get("delay"), int):
+            raise TypeError("seed_clients: expected delay to be of type int")
         delay = kwargs.get("delay")
     else:
         delay = 5
 
     peer_addresses = []
+    seed_client = ""
+    for x in range(attempts):
+        try:
+            seed_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            seed_client.connect((dns_ip, dns_port))
 
-    try:
-        seed_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        seed_client.connect((dns_ip, dns_port))
+        except (ConnectionRefusedError, OSError):
+            if x == attempts - 1:
+                logging.info("Seeding server did not accept connection")
+                return
 
-    except ConnectionRefusedError:
-        attempts = 0
+        else:
+            break
 
     for x in range(attempts):
         seed_client.send("00001a".encode())
@@ -146,7 +245,6 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
                 ip_address = "{}.{}.{}.{}".format(
                     int(data[:2], 16), int(data[2:4], 16), int(data[4:6], 16), int(data[6:], 16)
                 )
-                print(ip_address)
                 peer_addresses.append(ip_address)
                 data = data[8:]
             break
@@ -157,261 +255,308 @@ def seed_clients(dns_ip, dns_port, peer_port, **kwargs):
 
     logging.info("Seeding yielded {} addresses".format(len(peer_addresses)))
 
-    # add additional peers from config file
-    # run in the background
+    initialize_clients(peer_addresses, peer_port)
 
-    initiate_clients(peer_addresses, peer_port)
+    flags["finished seeding"] = True
 
 
 """
 Calculation Functions
----------------------
-
 """
 
 
-def hexify(number, length):
-    """
-    calculates hexadecimal value of the number, with prefix zeroes to match length
-    :param number: number to calculate hex value for, in base 10
-    :type number: int
-    :param length: requested length of hexadecimal value
-    :type length: int
-    :return: hexadecimal value of the number, with prefix zeroes
-    :rtype: str
-    :raise Exception: ValueError (message size is larger than length)
-    """
-    if not isinstance(number, int):
-        raise TypeError("Transaction.hexify(number, length): expected number to be of type int")
-    if not isinstance(length, int):
-        raise TypeError("Transaction.hexify(number, length): expected length to be of type int")
-    if number < 0:
-        raise ValueError("Transaction.hexify(number, length): expected non-negative value for number, received {} "
-                         "instead".format(number))
-    if length < 0:
-        raise ValueError("Transaction.hexify(number, length): expected non-negative value for length, received {} "
-                         "instead".format(length))
-
-    hex_base = hex(number)[2:]
-
-    if len(hex_base) <= length:
-        hex_base = (length - len(hex_base)) * "0" + hex_base
-        return hex_base
-    else:
-        raise ValueError("Transaction.hexify(number, length): message size is larger than length")
-
-
-def hexify_string(string):
-    return string.encode("utf-8").hex()
-
-
-def validate_transaction(transaction, blockchain, prev_block_hash=""):
-    # validate inputs are in order
-    for x in range(1, len(transaction.inputs)):
-        if transaction.inputs[x][0] > transaction.inputs[x - 1][0]:
-            return False
-        elif transaction.inputs[x][0] == transaction.inputs[x - 1][0]:
-            if transaction.inputs[x][1] > transaction.inputs[x - 1][1]:
-                return False
-
-    # validate outputs are in order
-    for x in range(1, len(transaction.outputs)):
-        if transaction.outputs[x][1] > transaction.outputs[x - 1][1]:
-            return False
-
-    # validate that keys don't appear twice
-    input_lst = transaction.inputs.copy()
-    for inp1 in transaction.inputs:
-        input_lst.remove(inp1)
-        for inp2 in input_lst:
-            if inp1[0] == inp2[0]:
-                return False
-                # key appears twice
-    output_lst = transaction.outputs.copy()
-    for output1 in transaction.outputs:
-        output_lst.remove(output1)
-        for output2 in transaction.outputs:
-            if output1[0] == output2[0]:
-                return False
-                # output key appears twice
-    if not prev_block_hash:
-        # validate sources, amounts
-        input_coin_amounts = 0
-        output_coin_amounts = 0
-        for inp in transaction.inputs:
-            block = blockchain.get_block_consensus_chain(inp[1])
-            input_transaction = Transaction.from_network_format(block[7].split(",")[inp[2] - 1])
-
-            appears_in_source = False
-
-            for src_out in input_transaction.outputs:
-                if src_out[0] == inp[0]:
-                    appears_in_source = True
-                    input_coin_amounts += src_out[1]
-            if not appears_in_source:
-                return False
-                # input is not valid (no coin in source for requested key)
-
-        for output in transaction.outputs:
-            output_coin_amounts += output[1]
-
-        if not output_coin_amounts - input_coin_amounts:
-            return False
-            # input & output amounts are not equal
-
-        # validate signatures
-        for inp in transaction.inputs:
-            key = inp[0]
-            key = RSA.import_key(key)
-
-            hasher = SHA256.new(transaction.signing_format().encode("utf-8"))
-            verifier = PKCS1_v1_5.new(key)
-            if not verifier.verify(hasher, inp[3]):
-                return False
-                # signature mismatch
-
-    elif prev_block_hash:
-        # validate sources, amounts
-        input_coin_amounts = 0
-        output_coin_amounts = 0
-        for inp in transaction.inputs:
-            if inp[1] < blockchain.get_block_by_hash(prev_block_hash)[1]:
-                block = blockchain.get_block_consensus_chain(inp[1])
-            else:
-                block = blockchain.get_block_by_hash(prev_block_hash)
-
-            input_transaction = Transaction.from_network_format(block[7].split(",")[inp[2] - 1])
-
-            appears_in_source = False
-
-            for src_out in input_transaction.outputs:
-                if src_out[0] == inp[0]:
-                    appears_in_source = True
-                    input_coin_amounts += src_out[1]
-            if not appears_in_source:
-                return False
-                # input is not valid (no coin in source for requested key)
-
-        for output in transaction.outputs:
-            output_coin_amounts += output[1]
-
-        if not output_coin_amounts - input_coin_amounts:
-            return False
-            # input & output amounts are not equal
-
-        # validate signatures
-        for inp in transaction.inputs:
-            key = inp[0]
-            key = RSA.import_key(key)
-
-            hasher = SHA256.new(transaction.signing_format().encode("utf-8"))
-            verifier = PKCS1_v1_5.new(key)
-            if not verifier.verify(hasher, inp[3]):
-                return False
-                # signature mismatch
-
-        for inp in transaction.inputs:
-            spent = False
-            for x in range(inp[1], blockchain.__len__() - 1):
-                for t in blockchain.get_block_consensus_chain(x)[7].split(","):
-                    t = Transaction.from_network_format(t).inputs
-                    for i in t:
-                        if i[1] == inp[1] and i[2] == inp[2]:
-                            spent = True
-            if not prev_block_hash:
-                for x in range(blockchain.__len__() - 1, blockchain.__len__()):
-                    for t in blockchain.get_block_consensus_chain(x)[7].split(","):
-                        t = Transaction.from_network_format(t).inputs
-                        for i in t:
-                            if i[1] == inp[1] and i[2] == inp[2]:
-                                spent = True
-            else:
-                for x in range(blockchain.__len__() - 1, blockchain.get_block_by_hash(prev_block_hash)[1]):
-                    for t in blockchain.get_block_consensus_chain(x)[7].split(","):
-                        t = Transaction.from_network_format(t).inputs
-                        for i in t:
-                            if i[1] == inp[1] and i[2] == inp[2]:
-                                spent = True
-            if spent:
-                return False
-    return True
-
-
-def datetime_string_posix(datetime_string):
-    year = int(datetime_string[:4])
-    month = int(datetime_string[5:7])
-    day = int(datetime_string[8:10])
-
-    hour = int(datetime_string[11:13])
-    minute = int(datetime_string[14:16])
-    second = int(datetime_string[17:19])
-    return datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timestamp()
-
-
 def calculate_difficulty(delta_t, prev_difficulty):
-    ratio = round(delta_t/1209600)
+    """
+    calculates difficulty of blockchain block, based on previous blocks
+    :param delta_t: time difference between last block group
+    :type delta_t: int
+    :param prev_difficulty: difficulty of blocks in previous block group
+    :type prev_difficulty: int
+    :return: difficulty of block based on previous blocks difficulty & delta_t
+    :rtype: int
+    """
+    if not isinstance(delta_t, int):
+        raise TypeError("calculate_difficulty: expected delta_t to be of type int")
+    if not isinstance(prev_difficulty, int):
+        raise TypeError("calculate_difficulty: expected prev_difficulty to be of type int")
+    ratio = (1209600 / delta_t)
     difficulty_addition = math.log(ratio, 2)
     if difficulty_addition > 0:
+        return prev_difficulty + math.ceil(difficulty_addition)
+    elif difficulty_addition < 0 < prev_difficulty + math.floor(difficulty_addition):
         return prev_difficulty + math.floor(difficulty_addition)
     elif difficulty_addition < 0:
-        return prev_difficulty + math.ceil(difficulty_addition)
+        return 1
     return prev_difficulty
 
 
-def calculate_hash(merkle_root_hash, prev_block_hash, nonce):
-    value = "{}{}{}{}".format(prev_block_hash, merkle_root_hash, nonce)
-    return sha256(value.encode()).hexdigest()
-
-
 def calculate_merkle_root_hash(block_transactions):
+    """
+    calculates the merkle tree root hash of the block's transactions
+    :param block_transactions: list of the blocks transactions
+    :type block_transactions: list
+    :return: merkle tree root hash of the block's transactions
+    :rtype: str
+    """
+    if not isinstance(block_transactions, list):
+        raise TypeError("calculate_merkle_root_hash: expected block_transactions to be of type list")
+    for t in block_transactions:
+        if not isinstance(t, Transaction):
+            raise TypeError("calculate_merkle_root_hash: expected block_transactions to be a list of type Transaction")
+
+    block_transactions = block_transactions.copy()
     for x in range(len(block_transactions)):
         block_transactions[x] = block_transactions[x].sha256_hash()
     if not len(block_transactions):
-        return "0" * 256
+        return "0" * 64
     while len(block_transactions) != 1:
         tmp_transactions = []
         for x in range(0, len(block_transactions) - 1, 2):
             hash1 = block_transactions[x]
             hash2 = block_transactions[x + 1]
-            tmp_transactions.append(sha256("{}{}".format(hash1, hash2).encode()))
+            tmp_transactions.append(sha256("{}{}".format(hash1, hash2).encode()).hexdigest())
         block_transactions = tmp_transactions
     return block_transactions[0]
 
 
+def validate_transaction(transaction, blockchain, previous_block_hash=""):
+    """
+    validates the transaction's format & data
+    :param transaction: transaction to validate
+    :type transaction: Transaction
+    :param blockchain: blockchain to use to check transaction's validity
+    :type blockchain: Blockchain
+    :param previous_block_hash: hash of the previous block (for transactions we
+                                want to validate not in the consensus chain) default="" for consensus chain transactions
+    :type previous_block_hash: str
+    :return: True if the transaction is valid, False if not
+    :rtype: tuple
+    """
+    if not isinstance(transaction, Transaction):
+        raise TypeError("validate_transaction: expected transaction to be of type Transaction")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("validate_transaction: expected blockchain to be of type Blockchain")
+    if not isinstance(previous_block_hash, str):
+        raise TypeError("validate_transaction: expected previous_block_hash to be of type str")
+
+    if validate_transaction_format(transaction)[0]:
+        if previous_block_hash:
+            return validate_transaction_data(transaction, blockchain, previous_block_hash)
+        else:
+            return validate_transaction_data_consensus(transaction, blockchain)
+    return validate_transaction_format(transaction)
+
+
+def validate_transaction_data(transaction, blockchain, previous_block_hash):
+    """
+    validates the transaction's data
+    :param transaction: transaction to validate
+    :type transaction: Transaction
+    :param blockchain: blockchain to use to check transaction's validity
+    :type blockchain: Blockchain
+    :param previous_block_hash: hash of the previous block
+    :type previous_block_hash: str
+    :return: True if transaction is valid, False if not
+    :rtype: tuple
+    """
+    # validate input sources and signatures
+    input_amount = 0
+    output_amount = 0
+
+    for input1 in transaction.inputs:
+        block = ""
+        if input1[1] < blockchain.__len__() - 1:
+            block = blockchain.get_block_consensus_chain(input1[1])
+        elif input1[1] == blockchain.__len__():
+            block = blockchain.get_block_by_hash(previous_block_hash)
+        elif input1[1] == blockchain.__len__() - 1:
+            block = blockchain.get_block_by_hash(blockchain.get_block_by_hash(previous_block_hash).prev_hash)
+        input_transaction = block.transactions[input1[2] - 1]
+
+        appears = False
+
+        for source_output in input_transaction:
+            if source_output[0] == input1[0]:
+                appears = True
+                input_amount += source_output[1]
+
+        if not appears:
+            return False, "transaction input's source does not appear in source block"
+
+        hasher = SHA256.new(transaction.signing_format().encode("utf-8"))
+        verifier = PKCS1_v1_5.new(RSA.import_key(input1[0]))
+        if not verifier.verify(hasher, input1[3]):
+            return False, "signature is not valid"
+
+    # input sources and signatures are valid, check that input amount equals output amount
+    for output in transaction.outputs:
+        output_amount += output[1]
+
+    if not output_amount - input_amount:
+        return False, "input and output amounts are not equal"
+
+    # input amount equals output amounts, validate that no transactions are a double spend
+    for input1 in transaction.inputs:
+        for x in range(input1[1] + 1, len(blockchain) + 1):
+            block = ""
+            if x < blockchain.__len__() - 1:
+                block = blockchain.get_block_consensus_chain(x)
+            elif x == blockchain.__len__():
+                block = blockchain.get_block_by_hash(previous_block_hash)
+            elif x == blockchain.__len__() - 1:
+                block = blockchain.get_block_by_hash(blockchain.get_block_by_hash(previous_block_hash).prev_hash)
+            for block_transaction in block.transactions:
+                for input2 in block_transaction.inputs:
+                    if input2[0] == input1[0] and input2[1] == input1[1] and input2[2] == input1[2]:
+                        return False, "double spend"
+
+    return True, ""
+
+
+def validate_transaction_data_consensus(transaction, blockchain):
+    """
+    validates the transaction's data
+    :param transaction: transaction to validate
+    :type transaction: Transaction
+    :param blockchain: blockchain to use to check transaction's validity
+    :type blockchain: Blockchain
+    :return: True if transaction is valid, False if not
+    :rtype: tuple
+    """
+    # validate input sources and signatures
+    input_amount = 0
+    output_amount = 0
+
+    for input1 in transaction.inputs:
+        block = blockchain.get_block_consensus_chain(input1[1])
+        input_transaction = block.transactions[input1[2] - 1]
+
+        appears = False
+
+        for source_output in input_transaction:
+            if source_output[0] == input1[0]:
+                appears = True
+                input_amount += source_output[1]
+
+        if not appears:
+            return False, "transaction input's source does not appear in source block"
+
+        hasher = SHA256.new(transaction.signing_format().encode("utf-8"))
+        verifier = PKCS1_v1_5.new(RSA.import_key(input1[0]))
+        if not verifier.verify(hasher, input1[3]):
+            return False, "signature is not valid"
+
+    # input sources and signatures are valid, check that input amount equals output amount
+    for output in transaction.outputs:
+        output_amount += output[1]
+
+    if not output_amount - input_amount:
+        return False, "input and output amounts are not equal"
+
+    # input amount equals output amounts, validate that no transactions are a double spend
+    for input1 in transaction.inputs:
+        for x in range(input1[1] + 1, len(blockchain) + 1):
+            block = blockchain.get_block_consensus_chain(x)
+            for block_transaction in block.transactions:
+                for input2 in block_transaction.inputs:
+                    if input2[0] == input1[0] and input2[1] == input1[1] and input2[2] == input1[2]:
+                        return False, "double spend"
+
+    return True, ""
+
+
+def validate_transaction_format(transaction):
+    """
+    validates the transaction's format
+    :param transaction: transaction to validate
+    :type transaction: Transaction
+    :return: True if the transaction is valid, False if else
+    :rtype: tuple
+    """
+    # validate that transaction inputs are in order
+    for x in range(0, len(transaction.inputs) - 1):
+        if int(transaction.inputs[x][0], 16) > int(transaction.inputs[x + 1][0], 16):
+            return False, "inputs order invalid"
+        elif int(transaction.inputs[x][0], 16) == int(transaction.inputs[x + 1][0], 16):
+            if transaction.inputs[x][1] > transaction.inputs[x + 1][1]:
+                return False, "inputs order invalid"
+            elif transaction.inputs[x][1] == transaction.inputs[x + 1][1]:
+                if transaction.inputs[x][2] > transaction.inputs[x + 1][2]:
+                    return False, "input order invalid"
+
+    # transaction inputs are in order, validate that transaction outputs are in order\
+    for x in range(0, len(transaction.outputs) - 1):
+        if int(transaction.outputs[x][0], 16) > int(transaction.outputs[x][0]):
+            return False, "outputs order invalid"
+
+    # transaction outputs are in order, validate that input sources don't appear twice
+    for i, input1 in enumerate(transaction.inputs):
+        for j, input2 in enumerate(transaction.inputs):
+            if i != j:
+                if input1[0] == input2[0] and input1[1] == input2[1] and input1[2] == input1[2]:
+                    return False, "input source appears twice"
+
+    # input sources don't appear twice, validate that outputs keys don't appear twice
+    for i, output1 in enumerate(transaction.outputs):
+        for j, output2 in enumerate(transaction.outputs):
+            if i != j:
+                if output1[0] == output2[0]:
+                    return False, "output key appears twice"
+
+    # output keys don't appear twice
+    return True, ""
+
+
 """
-Message Builder Functions
--------------------------
+Build Message Functions
 """
 
 
-def build_block_message(block):
-    block_number = hexify(block[1], 6)
+def build_get_blocks_message(first_block_number, last_block_number):
+    """
+    builds a get blocks message
+    :param first_block_number: number of first requested block
+    :type first_block_number: int
+    :param last_block_number: number of last requested block
+    :type last_block_number: int
+    :return: get bocks message
+    :rtype: str
+    """
+    if not isinstance(first_block_number, int):
+        raise TypeError("build_get_blocks_message: expected first_block_number to be of type int")
+    if not isinstance(last_block_number, int):
+        raise TypeError("build_get_blocks_message: expected last_block_number to be of type int")
+    message = "g{}{}".format(hexify(first_block_number, 6), hexify(last_block_number, 6))
+    return message
 
-    time = block[2]
-    year = time[:4]
-    month = time[5:7]
-    day = time[8:10]
-    hour = time[11:13]
-    minute = time[14:16]
-    second = time[17:19]
-    time_stamp = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timestamp()
 
-    prev_hash = block[3]
-    difficulty = hexify(block[4], 2)
-    nonce = hexify(block[5], 8)
-    merkle_root_hash = block[6]
-    block_transactions = block[7].split(",")
-
-    message = "d{}{}{}{}{}{}{}".format(block_number, time_stamp, difficulty, nonce, prev_hash, merkle_root_hash,
-                                       hexify(len(block_transactions), 2))
-
-    for transaction in block_transactions:
-        message += hexify(len(transaction), 2) + transaction
-
+def build_error_message(error_message):
+    """
+    builds an error message
+    :param error_message: error message to build error message for
+    :type error_message: str
+    :return: error message
+    :rtype: str
+    """
+    if not isinstance(error_message, str):
+        raise TypeError("build_error_message: expected error_message to be of type str")
+    message = "f{}".format(hexify_string(error_message))
     return message
 
 
 def build_peers_message(peers_list):
+    """
+    builds a peers message
+    :param peers_list: list of peer ipv4 addresses
+    :type peers_list: list
+    :return: peer message
+    :rtype: str
+    """
+    if not isinstance(peers_list, list):
+        raise TypeError("build_peers_message: expected peers_list to be of type list")
+    for p in peers_list:
+        if not isinstance(p, str):
+            raise TypeError("build_peers_message: expected peers_list to be a list of type str")
     message = "b{}".format(hexify(len(peers_list), 2))
     for address in peers_list:
         address_bytes = address.split(".")
@@ -420,51 +565,195 @@ def build_peers_message(peers_list):
     return message
 
 
-def build_error_message(error_message):
-    message = "f{}".format(hexify_string(error_message))
-    return message
-
-
 """
-Network Protocol Functions
---------------------------
-
+Handle Message Functions
 """
 
 
-def handle_peer_request_message():
-    logging.info("Message is a peer request message")
-    reply = build_peers_message(inputs.array)
-    reply = "{}{}".format(hexify(len(reply), 5), reply)
-    return reply, 1
+def handle_message(message, blockchain):
+    """
+    redirects message to relevant message handling function
+    :param message: message to handle
+    :type message: str
+    :param blockchain: BLockchain to use for relevant messages
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message: expected blockchain to be of type Blockchain")
+    message_handling_functions = dict(a=lambda: handle_message_peers_request(),
+                                      b=lambda: handle_message_peers(message),
+                                      c=lambda: handle_message_block_request(message, blockchain),
+                                      d=lambda: handle_message_block(message, blockchain),
+                                      e=lambda: handle_message_transaction(message, blockchain),
+                                      f=lambda: handle_message_error(message),
+                                      g=lambda: handle_message_blocks_request(message, blockchain),
+                                      h=lambda: handle_message_blocks(message, blockchain),
+                                      i=lambda: handle_message_user_data(message, blockchain))
+
+    message_type = message[:1]
+
+    if message_type not in message_handling_functions:
+        logging.debug("Message is invalid (unrecognized message type)")
+        reply = build_error_message("unrecognized message type")
+        reply = "{}{}".format(hexify(len(reply), 5), reply)
+        return reply, 1
+    else:
+        return message_handling_functions[message_type]()
 
 
-def handle_peer_message(message):
-    if len(message) < 3:
-        logging.info("Message is an invalid peer message")
+def handle_message_block(message, blockchain):
+    """
+    validates block message, appends it if it is valid
+    :param message: block message
+    :type message: str
+    :param blockchain: blockchain to use to validate block and to append block to if it is valid
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_block: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_block: expected blockchain to be type Blockchain")
+    try:
+        block = Block.from_network_format(message)
+    except ValueError:
+        logging.info("Message is an invavlid block [message is in an incorrect format]")
         return None, -1
-    peer_count = int(message[1:3])
-    if len(message) < 3 + 8 * peer_count:
-        logging.info("Message is an invalid peer message")
+
+    # check if block number relevant
+    if block.block_number < blockchain.__len__() - 1:
+        logging.info("Message is an invalid block [block number is not relevant]")
         return None, -1
-    logging.info("Message is a peer message")
-    message = message[3:]
 
-    addresses = []
+    # check if block already received
+    if blockchain.get_block_by_hash(block.self_hash):
+        logging.info("Message is an invalid block [block already received]")
+        return None, -1
 
-    for x in peer_count:
-        byte1 = int(message[:2], 16)
-        byte2 = int(message[2:4], 16)
-        byte3 = int(message[4:6], 16)
-        byte4 = int(message[6:8], 16)
-        address = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
-        addresses.append(address)
-        message = message[8:]
-    threading.Thread(name="Peer Seeding Thread", target=initiate_clients, args=(addresses, 8333,)).start()
-    return None, -1
+    if block.block_number != 1:
+        # check if previous block exists
+        previous_block = blockchain.get_block_by_hash(block.prev_hash)
+        if not previous_block and block.block_number > blockchain.__len__():
+            return build_get_blocks_message(blockchain.__len__(), block.block_number), 1
+        elif not previous_block:
+            logging.info("Message is an invalid block [block is not in consensus chain]")
+            return None, -1
+
+        # validate time created
+        if block.timestamp <= previous_block.timestamp:
+            logging.info("Message is an invalid block [block was created before previous block]")
+            return None, -1
+
+    # validate difficulty
+    if block.block_number <= 2016:
+        if block.difficulty != config("default difficulty"):
+            logging.info("Message is an invalid block [block's difficulty is wrong]")
+            return None, -1
+    else:
+        maximum_block = blockchain.get_block_by_hash(block.prev_hash)
+        while maximum_block.block_number % 2016 != 0:
+            maximum_block = blockchain.get_block_by_hash(maximum_block.prev_hash)
+        minimum_block = blockchain.get_block_by_hash(maximum_block.prev_hash)
+        while minimum_block.block_number % 2016 != 0:
+            minimum_block = blockchain.get_block_by_hash(minimum_block.prev_hash)
+        delta_t = maximum_block.timestamp - minimum_block.timestamp
+        if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_hash(
+                maximum_block.prev_hash).difficulty):
+            logging.info("Message is an invalid block [block's difficulty is wrong]")
+            return None, -1
+
+    # validate nonce #
+    maximum = 2 ** (256 - block.difficulty)
+    b_hash = calculate_hash(block.prev_hash, block.merkle_root_hash, block.nonce)
+    int_hash = int(b_hash, 16)
+
+    if int_hash > maximum:
+        logging.info("Message is an invalid block [hash does not match difficulty]")
+        return None, -1
+
+    # validate first transaction
+    if len(block.transactions[0].inputs):
+        logging.info("Message is an invalid block [first transaction contains inputs]")
+        return None, -1
+    elif len(block.transactions[0].outputs) != 1:
+        logging.info("Message is an invalid block [first transaction has more than one output]")
+        return None, -1
+    elif block.transactions[0].outputs[0][1] != config("block reward"):
+        logging.info("Message is an invalid block [block reward is incorrect]")
+        return None, -1
+
+    # validate transactions
+    for i, transaction in enumerate(block.transactions[1:]):
+        if not validate_transaction(transaction, blockchain, block.prev_hash)[0]:
+            logging.info("Message is an invalid block [transaction {} is invalid]".format(i))
+            return None, -1
+
+    # validate merkle root hash
+    transaction_hash = calculate_merkle_root_hash(block.transactions)
+
+    if block.merkle_root_hash != transaction_hash:
+        logging.info("Message is an invalid block [merkle root hash is invalid]")
+        return None, -1
+
+    # validate transactions are in order
+    for i in range(1, len(block.transactions) - 1):
+        if block.transactions[i] < block.transactions[i + 1]:
+            logging.info("Message is an invalid block [transactions are not in order]")
+            return None, -1
+
+    # check for overlaps
+    for t1 in range(1, len(block.transactions)):
+        for t2 in range(1, len(block.transactions)):
+            if not t1 == t2:
+                if block.transactions[t1].overlap(block.transactions[t2]):
+                    logging.info("Message is an invalid block [block contains two outputs with the same key]")
+                    return None, -1
+
+    # append to database
+    blockchain.append(block.block_number, block.timestamp, block.difficulty, block.nonce, block.prev_hash,
+                      block.merkle_root_hash, block.transactions, block.self_hash)
+
+    # delete blocks if consensus long enough
+    if blockchain.get_block_consensus_chain(
+            blockchain.__len__()).self_hash == block.self_hash and block.block_number > 2:
+        # block is in consensus
+        for block2 in blockchain.__getitem__(block.block_number - 2):
+            if block2.self_hash != blockchain.get_block_consensus_chain(block.block_number - 2).self_hash:
+                blockchain.delete(block2.self_hash)
+
+    # raise flag if appropriate
+    if blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash == block.self_hash:
+        flags["received new consensus block"] = True
+
+    # remove transactions from list if necessary
+    for t in transactions:
+        if not validate_transaction(t, blockchain):
+            transactions.remove(t)
+
+    # return message
+    logging.info("Message is a valid block")
+    return "{}{}".format(hexify(len(block.network_format()), 5), block.network_format())
 
 
-def handle_block_request_message(message, blockchain):
+def handle_message_block_request(message, blockchain):
+    """
+    validates block request message and returns appropriate reply
+    :param message: block request message
+    :type message: str
+    :param blockchain: blockchain to use to get block
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_block_request: expected messge to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_block_request: expected blockchain to be of type Blockchain")
     if len(message) != 71:
         # message not in correct format
         logging.info("Message is an invalid block request")
@@ -478,400 +767,356 @@ def handle_block_request_message(message, blockchain):
             logging.info("Message is an invalid block request")
             return None, -1
         elif block_number == 0:
-            block_number = blockchain.__len__()
-
-        # return requested block if have, else return nothing
-        block = blockchain.get_block_consensus_chain(block_number, prev_hash=previous_block_hash)
+            try:
+                block = blockchain.get_block_consensus_chain(blockchain.__len__())
+            except IndexError:
+                return None, -1
+        else:
+            # return requested block if have, else return nothing
+            block = blockchain.__getitem__(block_number, prev_hash=previous_block_hash)
 
         if block:
-            reply = build_block_message(block)
-            logging.info("Message is a block request")
+            reply = block.network_format()
+            logging.info("Message is a valid block request")
             return "{}{}".format(hexify(len(reply), 5), reply), 1
-
-        logging.info("Message is an invalid block request")
-        return None, -1
-
-
-def handle_block_message(message, blockchain):
-    # validate minimum length
-    if len(message) < 155:
-        return None, -1
-
-    block_number = int(message[1:7], 16)
-    posix_time = int(message[7:15], 16)
-    previous_block_hash = message[15:79]
-    block_difficulty = int(message[79:81], 16)
-    nonce = int(message[81:89], 16)
-    merkle_root_hash = message[89:153]
-    transaction_count = message[153:155]
-    valid = True
-
-    # check if block already received
-    if blockchain.__getitem__(block_number, prev_hash=previous_block_hash):
-        return None, -1
-
-    # check if block number relevant
-    if block_number < blockchain.__len__() - 1:
-        return None, -1
-
-    # validate time created
-    prev_block_posix_time = datetime_string_posix(blockchain.__getitem__(block_number - 1, prev_hash=previous_block_hash)
-                                                  [0][2])
-    if posix_time <= prev_block_posix_time:
-        return None, -1
-
-    # validate difficulty
-    if block_number <= 2016:
-        if block_difficulty != get_config_data("default difficulty"):
-            return None, -1
-    else:
-        maximum_block = blockchain.__getitem__(block_number - 1, previous_block_hash)[0]
-        while int(maximum_block[1]) % 2016 != 0:
-            maximum_block = blockchain.__getitem__(int(maximum_block[1]) - 1, maximum_block[3])[0]
-        minimum_block = blockchain.__getitem__(int(maximum_block[1]) - 1, maximum_block[3])[0]
-        while int(minimum_block[1]) % 2016 != 0:
-            minimum_block = blockchain.__getitem__(int(minimum_block[1]) - 1, minimum_block[3])[0]
-        delta_t = datetime_string_posix(maximum_block[2]) - datetime_string_posix(minimum_block[2])
-        if block_difficulty != calculate_difficulty(delta_t):
-            return None, -1
-
-    # validate nonce
-    maximum = 2 ** (256 - block_difficulty)
-    b_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
-    int_hash = int(b_hash, 16)
-
-    if int_hash > maximum:
-        return None, -1
-        pass
-
-    # validate first transaction
-    transaction_message = message[155:]
-    first_transaction_length = transaction_message[:5]
-    first_transaction = transaction_message[5:5 + first_transaction_length]
-    try:
-        first_transaction = Transaction.from_network_format(first_transaction)
-    except ValueError:
-        return None, -1
-    else:
-        if len(first_transaction.inputs):
-            return None, -1
-        elif len(first_transaction.outputs) != 1:
-            return None, -1
-        elif first_transaction.outputs[0][1] != 10:
-            return None, -1
-
-    transaction_message = transaction_message[5 + first_transaction_length:]
-
-    block_transactions = []
-    for x in transaction_count - 1:
-        length = transaction_message[:5]
-        transaction = transaction_message[5: 5 + length]
-        try:
-            transaction = Transaction.from_network_format(transaction)
-        except ValueError:
-            return None, -1
         else:
-            block_transactions.append(transaction)
-
-    for transaction in block_transactions:
-        if not validate_transaction(transaction, blockchain, prev_block_hash=previous_block_hash):
+            logging.info("Message is an invalid block request")
             return None, -1
 
-    block_transactions = [first_transaction] + block_transactions
 
-    # validate merkle root hash
-    transaction_hash = calculate_merkle_root_hash(block_transactions)
+def handle_message_blocks(message, blockchain):
+    """
+    validates blocks message, appends block if they are valid
+    :param message: blocks message
+    :type message: str
+    :param blockchain: blockchain to use to validate blocks and to append blocks if they are valid
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_blocks: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_blocks: expected blockchain to be of type Blockchain")
+    logging.info("Message is a blocks message")
+    block_count = int(message[1:7], 16)
+    message = message[7:]
+    for i in range(block_count):
+        block_size = message[:5]
+        handle_message_block(message[5: 5 + block_size], blockchain)
+        message = message[5 + block_size:]
 
-    if merkle_root_hash != transaction_hash:
+
+def handle_message_blocks_request(message, blockchain):
+    """
+    validates blocks request message and returns appropriate reply
+    :param message: blocks request message
+    :type message: str
+    :param blockchain: blockchain to use to get blocks
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_blocks_request: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_blocks_request: expected blockchain to be of type Blockchain")
+    first_block = int(message[1:7], 16)
+    last_block = int(message[7:13], 16)
+
+    reply = "h{}".format(hexify(last_block - first_block + 1, 6))
+
+    for i in range(first_block, last_block + 1):
+        block = blockchain.get_block_consensus_chain(i)
+        if block:
+            reply += "{}{}".format(len(block.network_format()), block.network_format())
+    logging.info("Message is a block request message")
+    return reply, 1
+
+
+def handle_message_error(message):
+    """
+    handles error message
+    :param message: error message
+    :type message: str
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_error: expected message to be of type str")
+    logging.info("Message is an error message [{}]".format(dehexify_string(message[1:])))
+    return None, -1
+
+
+def handle_message_peers(message):
+    """
+    validates peers message, connects to them if valid
+    :param message: peers message
+    :type message: str
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_peers: expected message to be of type str")
+    if len(message) < 3:
+        logging.info("Message is an invalid peer message")
         return None, -1
+    peer_count = int(message[1:3], 16)
+    if len(message) < 3 + 8 * peer_count:
+        logging.info("Message is an invalid peer message")
+        return None, -1
+    logging.info("Message is a peer message")
+    message = message[3:]
 
-    # validate transactions are in order
-    for t in range(1, len(block_transactions) - 1):
-        if block_transactions[t] < block_transactions[t + 1]:
-            return None, -1
+    addresses = []
 
-    # check for overlaps
-    for t1 in range(1, len(block_transactions)):
-        for t2 in range(1, len(block_transactions)):
-            if not t1 == t2:
-                if block_transactions[t1].overlap(block_transactions[t2]):
-                    return None, -1
-
-    # append to database
-    self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
-    blockchain.append(block_number, posix_time, previous_block_hash, block_difficulty, nonce, merkle_root_hash,
-                      block_transactions, self_hash)
-
-    # delete blocks if consensus long enough
-    if block_number == blockchain.__len__() and block_number >= 3:
-        if blockchain.get_block_consensus_chain(block_number)[4] == previous_block_hash:
-            prev_prev_hash = blockchain.__getitem__(block_number - 2, blockchain.__getitem__(block_number - 1,
-                                                                                             previous_block_hash)[0][3])[0][3]
-            for block in blockchain.__getitem__(block_number - 2):
-                if block[3] != prev_prev_hash:
-                    blockchain.delete(block[4])
-
-    # raise flag if appropriate
-    if blockchain.get_block_consensus_chain(blockchain.__len__())[3] == previous_block_hash:
-        flags["received new block"] = True
-
-    # remove transactions from list if necessary
-    for t in transactions:
-        if not validate_transaction(t, blockchain):
-            transactions.remove(t)
-
-    # return message
-    return "{}{}".format(len(message), message), 2
+    for x in range(peer_count):
+        byte1 = int(message[:2], 16)
+        byte2 = int(message[2:4], 16)
+        byte3 = int(message[4:6], 16)
+        byte4 = int(message[6:8], 16)
+        address = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
+        addresses.append(address)
+        message = message[8:]
+    threading.Thread(name="Peer Seeding Thread", target=initialize_clients, args=(addresses, 8333,)).start()
+    return None, -1
 
 
-def handle_transaction_message(message, blockchain):
+def handle_message_peers_request():
+    """
+    handles peer request message
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    logging.info("Message is a peer request message")
+    reply = build_peers_message(sockets.array)
+    reply = "{}{}".format(hexify(len(reply), 5), reply)
+    return reply, 1
+
+
+def handle_message_transaction(message, blockchain):
+    """
+    validates transactions message, appends it to transactions list if valid
+    :param message: transaction message
+    :type message: str
+    :param blockchain: blockchain to use to validate transaction
+    :type blockchain: Blockchain
+    :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
+    :rtype: tuple
+    """
+    if not isinstance(message, str):
+        raise TypeError("handle_message_transaction: expected message to be of type str")
+    if not isinstance(blockchain, Blockchain):
+        raise TypeError("handle_message_transaction: expected blockchain to be of type Blockchain")
     try:
         transaction = Transaction.from_network_format(message)
     except ValueError:
-        logging.info("Message is an invalid transaction message")
+        logging.info("Message is an invalid transaction message [message format invalid]")
         return None, -1
     else:
         if transaction in transactions:
             logging.info("Message is a previously received transaction message")
             return None, -1
-        if validate_transaction(transaction, blockchain):
+        msg_validity = validate_transaction(transaction, blockchain)
+        if msg_validity[0]:
             transactions.append(transaction)
             logging.info("Message is a transaction message")
             return "{}{}".format(len(message), message), 2
         else:
-            logging.info("Message is an invalid transaction message")
+            logging.info("Message is an invalid transaction message [{}]".format(msg_validity[1]))
             return None, -1
 
 
-def handle_error_message(message):
-    logging.info("Message is an error message")
-    return None, -1
-
-
-def handle_message(message, blockchain):
-    message_handling_functions = dict(a=lambda: handle_peer_request_message(),
-                                      b=lambda: handle_peer_message(message),
-                                      c=lambda: handle_block_request_message(message, blockchain),
-                                      d=lambda: handle_block_message(message, blockchain),
-                                      e=lambda: handle_transaction_message(message, blockchain),
-                                      f=lambda: handle_error_message(message))
-
-    message_type = message[:1]
-
-    if message_type not in message_handling_functions:
-        logging.info("Message is invalid (unrecognized message type)")
-        reply = build_error_message("unrecognized message type")
-        reply = "{}{}".format(hexify(len(reply), 5), reply)
-        return reply, 1
-    else:
-        return message_handling_functions[message_type]
-
-
 """
-Block Miner Function
---------------------
+Thin Nodes Message Handling
 """
 
-
-def find_nonce(blockchain, difficulty, prev_hash, merkle_hash):
+def spent(key, block_number, transaction_number):
     """
-    finds nonce for new block
+
+    :param key:
+    :type key:
+    :param block_number:
+    :type block_number:
+    :param transaction_number:
+    :type transaction_number:
+    :return:
+    :rtype: bool
+    """
+    pass
+
+def handle_message_user_data(message, blockchain):
+    """
+
+    :param message:
+    :type message:
     :param blockchain:
-    :type blockchain:
-    :param difficulty:
-    :type difficulty:
-    :param prev_hash:
-    :type prev_hash:
-    :param merkle_hash:
-    :type merkle_hash:
+    :type blockchain: Blockchain
     :return:
     :rtype:
     """
-    nonce = 0
+    pub_key = message[1:]
 
-    maximum = 2 ** (256 - difficulty)
+    currency_amount = 0
 
-    block_hash = sha256("{}{}{}".format(prev_hash, merkle_hash, hexify(nonce, 8)).encode()).hexdigest()
-    int_hash = int(block_hash, 16)
+    for i in range(1, len(blockchain) - 2):
+        block = blockchain.get_block_consensus_chain(i)
 
-    while int_hash > maximum and not flags["received_block_flag"]:
-        nonce += 1
-        block_hash = sha256("{}{}{}".format(prev_hash, merkle_hash, hexify(nonce, 8)).encode()).hexdigest()
-        int_hash = int(block_hash, 16)
+        for x, transaction in enumerate(block.transactions):
+            for output in transaction:
+                if output[0] == pub_key:
+                    if not spent(pub_key, i, x):
+                        currency_amount += output[1]
 
-        if flags["received new block"]:
-            return
-
-    return nonce
-
-
-def mine_new_block(blockchain, public_key):
-    block_number = blockchain.__len__() + 1
-
-    if block_number <= 2016:
-        difficulty = get_config_data("default difficulty")
-    else:
-        ceiling = 2016 * math.floor((block_number - 1) / 2016)
-        floor = ceiling - 2016
-        delta_t = datetime_string_posix(blockchain.get_block_consensus_chain(ceiling)[2]) - datetime_string_posix(blockchain.get_block_consensus_chain(floor[2]))
-        difficulty = calculate_difficulty(delta_t, int(blockchain.get_block_consensus_chain(ceiling - 1)[4]))
-
-    prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__())[3]
-
-    block_transactions = []
-    all_transactions = transactions.array
-    for t in all_transactions:
-        invalid_transaction = False
-        for t2 in block_transactions:
-            if t.overlap(t2):
-                invalid_transaction = True
-        if not invalid_transaction:
-            block_transactions.append(t)
-        if len(block_transactions) == 64:
-            break
-    block_transactions.sort(key=Transaction.sort_key, reverse=True)
-
-    source_transaction = Transaction(datetime.datetime.now().timestamp(), [], [(public_key, 10)])
-    block_transactions = [source_transaction] + block_transactions
-
-    merkle_root_hash = calculate_merkle_root_hash(block_transactions)
-
-    nonce = find_nonce(blockchain, difficulty, prev_hash, merkle_root_hash)
-
-    blockchain.append(block_number, datetime.datetime.now().timestamp(), prev_hash, difficulty, nonce, merkle_root_hash,
-                      transactions, calculate_hash(merkle_root_hash, prev_hash, nonce))
-    block = blockchain.get_block_consensus_chain(blockchain.__len__())
-
-    message = build_block_message(block)
-    thread_queue.put("{}{}".format(len(message), message), 2)
-    flags["created new block"] = True
+    pass
 
 
 """
 Main Function
--------------
 """
 
 
 def main():
-    threading.current_thread().name = "MainNodeThread"
-
     global thread_queue
     global flags
-    global inputs
-    global outputs
+    global sockets
 
-    flags["received new block"] = False
-    flags["created new block"] = False
+    threading.current_thread().name = "MainNodeThread"
 
-    ip = get_config_data("ip address")
-    port = get_config_data("port")
-    seed_ip = get_config_data("seed address")
-    seed_port = get_config_data("seed port")
-    sql_address = get_config_data("sql address")
-    sql_user = get_config_data("sql user")
-    sql_password = get_config_data("sql password")
+    flags["exception"] = False
+    flags["finished seeding"] = False
+
+    ip = config("ip address")
+    port = config("port")
+    seed_ip = config("seed address")
+    seed_port = config("seed port")
+    sql_address = config("sql address")
+    sql_user = config("sql user")
+    sql_password = config("sql password")
 
     blockchain = Blockchain(sql_address, sql_user, sql_password)
 
-    server_socket = initiate_server(ip, port)
+    server_socket = initialize_server(ip, port)
+    if not server_socket:
+        logging.critical("Could not initialize server socket. Terminating...")
+        return
     logging.info("Server: Initiated [{}, {}]"
                  .format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
-    threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,)).start()
 
-    mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
-    mining_thread.start()
-
-    inputs.append(server_socket)
+    seeding_thread = threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,))
+    seeding_thread.start()
 
     message_queues = {}
 
-    while inputs:
-        readable, writable, exceptional = select.select(client_sockets + inputs, outputs, client_sockets + inputs)
+    get_most_recent_block = "00047c0000000000000000000000000000000000000000000000000000000000000000000000"
+
+    while True:
+        inputs = sockets.array + [server_socket]
+        readable, writable, exceptional = select.select(inputs, sockets.array, sockets.array, 0)
 
         for sock in readable:
-            if sock is server_socket:  # new socket has connected to the server
-                connection, client_address = server_socket.accept()
-                connection.setblocking(False)
-                inputs.append(connection)
-                logging.info("[{}, {}]: New node connected".format(client_address[0], client_address[1]))
+            if sock is server_socket:
+                logging.info("New node attempting connection to server")
+                client_socket, address = server_socket.accept()
+
+                sockets.append(client_socket)
+                logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
+
+                client_socket.setblocking(False)
+
+                if address[0] not in message_queues:
+                    message_queues[address[0]] = queue.Queue()
+                message_queues[address[0]].put(get_most_recent_block)
 
             else:
-                size = sock.read(5).decode()
-                if not size:
-                    logging.info("[{}, {}]: Node disconnected"
-                                 .format(sock.getpeername()[0], sock.getpeername()[1]))
-                    if sock in inputs:
-                        inputs.remove(sock)
-                    else:
-                        client_sockets.remove(sock)
-                    if sock in outputs:
-                        outputs.remove(sock)
-                    if sock in message_queues:
-                        del message_queues[sock]
+                try:
+                    size = sock.recv(5).decode()
+                except ConnectionResetError:
+                    sock.close()
+                    sockets.remove(sock)
+
                 else:
-                    size = int(size, 16)
-                    message = sock.read(size)
-                    logging.info("[{},{}]: Received message from node".format(sock.getpeername[0], sock.getpeername[1]))
-                    reply = handle_message(message, blockchain)
-                    if reply[1] == -1:
-                        logging.info("[{},{}]: Message does not warrant a reply"
-                                     .format(sock.getpeername[0], sock.getpeername[1]))
-                    elif reply[1] == 1:
-                        logging.info("[{},{}]: Replying to sending node only"
-                                     .format(sock.getpeername[0], sock.getpeername[1]))
-                        if sock not in message_queues:
-                            message_queues[sock] = queue.SimpleQueue()
-                        if sock not in outputs:
-                            outputs.append(sock)
-                        message_queues[sock].put(reply[0])
-                    elif reply[1] == 2:
-                        logging.info("[{},{}]: Replying to all connected nodes"
-                                     .format(sock.getpeername[0], sock.getpeername[1]))
-                        for other_sock in client_sockets + inputs:
-                            if other_sock not in message_queues:
-                                message_queues[other_sock] = queue.SimpleQueue()
-                            if other_sock not in outputs:
-                                outputs.append(other_sock)
-                            message_queues[other_sock].put(reply[0])
+                    if size:
+                        try:
+                            message = sock.recv(int(size, 16)).decode()
+                        except ConnectionResetError:
+                            logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
+                            sock.close()
+                            sockets.remove(sock)
+
+                        else:
+                            reply = handle_message(message, blockchain)
+
+                            if reply[1] == -1:
+                                logging.debug("No reply")
+
+                            if reply[1] == 1:
+                                logging.debug("Replying to sender")
+                                if sock.getpeername()[0] not in message_queues:
+                                    message_queues[sock.getpeername()[0]] = queue.Queue()
+                                message_queues[sock.getpeername()[0]].put(reply[0])
+
+                            elif reply[1] == 2:
+                                logging.debug("Sending reply to all nodes")
+
+                                for other_sock in sockets:
+                                    if other_sock.getpeername()[0] not in message_queues:
+                                        message_queues[other_sock.getpeername()[0]] = queue.Queue()
+                                    message_queues[other_sock.getpeername()[0]].put(reply[0])
+                    else:
+                        logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
+                        address = sock.getpeername()[0]
+                        sock.close()
+                        sockets.remove(sock)
+
+                        if address in message_queues:
+                            del message_queues[address]
+
+                        for other_sock in sockets:
+                            if other_sock.getpeername()[0] == address:
+                                other_sock.close()
+                                sockets.remove(other_sock)
 
         for sock in writable:
-            if not message_queues[sock].empty():
-                message = message_queues[sock].get()
-                sock.send(message.encode())
+            try:
+                address = sock.getpeername()[0]
+            except OSError:
+                sock.close()
+            if address in message_queues:
+                if not message_queues[address].empty():
+                    message = message_queues[address].get()
+                    sock.send(message.encode())
+                    logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
 
         for sock in exceptional:
-            if sock in inputs:
-                inputs.remove(sock)
-            elif sock in client_sockets:
-                client_sockets.remove(sock)
-            if sock in outputs:
-                outputs.remove(sock)
-            if sock in message_queues:
-                message_queues.pop(sock)
+            address = sock.getpeername()[0]
+            for other_sock in sockets:
+                if other_sock.getpeername()[0] == address:
+                    other_sock.close()
+                    sockets.remove(other_sock)
 
-        if flags["created new block"]:
-            mining_thread.join()
-            message = thread_queue.get()[0]
+            if address in message_queues:
+                del message_queues[address]
 
-            for sock in client_sockets + inputs:
-                if sock not in message_queues:
-                    message_queues[sock] = queue.SimpleQueue()
-                if sock not in outputs:
-                    outputs.append(sock)
-                message_queues[sock].put(message)
+        if flags["exception"]:
+            # TODO: handle exceptions
+            pass
 
-            mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
-            mining_thread.start()
+        sock_removals = []
 
-        if flags["received new block"]:
-            mining_thread.join()
-            if not thread_queue.empty():
-                thread_queue.get()
-            mining_thread = threading.Thread(name="Mining Thread", target=mine_new_block, args=(blockchain,))
+        for address in message_queues:
+            exists = False
+            for sock in sockets:
+                if sock.getpeername()[0] == address:
+                    exists = True
+            if not exists:
+                sock_removals.append(address)
+
+        for address in sock_removals:
+            logging.info("[{}, N/A] Node disconnected".format(address))
+            del message_queues[address]
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format="%(threadName)s [%(asctime)s] %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(threadName)s [%(asctime)s]: %(message)s")
     main()
-
