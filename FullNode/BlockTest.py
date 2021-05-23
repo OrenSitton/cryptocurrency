@@ -7,10 +7,11 @@ Description:
 import logging
 from Dependencies import hexify
 from Dependencies.__main__ import calculate_message_length
+import pickle
 
 def main():
-    word = "a" * 1048574
-    print(calculate_message_length(word))
+    with open("Dependencies\\config.cfg", 'rb') as file:
+        print(pickle.load(file))
 
 if __name__ == '__main__':
     main()

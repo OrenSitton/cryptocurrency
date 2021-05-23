@@ -115,6 +115,7 @@ def initialize_client(ip, port):
     :return: client socket object
     :rtype: socket.socket
     """
+    # TODO: check if client already exists
     if not isinstance(ip, str):
         raise TypeError("initialize_client: expected ip to be of type str")
     if not isinstance(port, int):
@@ -710,7 +711,7 @@ def handle_message_block(message, blockchain):
             logging.info("Message is an invalid block [block's difficulty is wrong]")
             return None, -1
 
-    # validate nonce #
+    # validate nonce
     maximum = 2 ** (256 - block.difficulty)
     b_hash = calculate_hash(block.prev_hash, block.merkle_root_hash, block.nonce)
     int_hash = int(b_hash, 16)
@@ -1140,6 +1141,8 @@ def main():
                 logging.info("New node attempting connection to server")
                 client_socket, address = server_socket.accept()
 
+                # TODO: check if client already exists
+
                 sockets.append(client_socket)
                 logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
 
@@ -1165,6 +1168,11 @@ def main():
 
                         try:
                             message = sock.recv(int(size, 16)).decode()
+                            logging.info("[{}, {}]: Received message from node".format(sock.getpeername()[0], sock.getpeername()[1]))
+                            logging.debug(
+                                "[{}, {}]: Message Received: \n {}".format(sock.getpeername()[0], sock.getpeername()[1],
+                                                                           message))
+
                         except ConnectionResetError:
                             logging.info(
                                 "[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
@@ -1215,6 +1223,7 @@ def main():
                         message = message_queues[address].get()
                         sock.send(message.encode())
                         logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
+                        logging.debug("Message: \n{}".format(message))
 
         for sock in exceptional:
             address = sock.getpeername()[0]
@@ -1227,8 +1236,13 @@ def main():
                 del message_queues[address]
 
         if flags["received new block"]:
-            # TODO: end mining thread
-            pass
+            mining_thread.join()
+            if not thread_queue.empty():
+                while not thread_queue.empty():
+                    thread_queue.get()
+
+            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
+            mining_thread.start()
 
         if flags["created new block"]:
             flags["created new block"] = False

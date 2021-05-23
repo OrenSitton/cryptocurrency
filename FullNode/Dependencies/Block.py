@@ -78,7 +78,7 @@ class Block:
 
     def __str__(self):
         return_string = "Block Number: {}\nTimestamp: {}\nDifficulty: {}\nNonce: {}\nPrevious Hash: {}\nMerkle Root " \
-                        "Hash: {}\n"
+                        "Hash: {}\n".format(self.block_number, self.timestamp, self.difficulty, self.nonce, self.prev_hash, self.merkle_root_hash)
 
         for t in self.transactions:
             return_string += "Transaction:\n " + t.__str__() + "\n"
@@ -131,7 +131,7 @@ class Block:
         for t in block_transactions:
             str_block_transactions += t + ","
         str_block_transactions = str_block_transactions[:-1]
-        self_hash = calculate_hash(merkle_root_hash, previous_block_hash, nonce)
+        self_hash = calculate_hash(previous_block_hash, merkle_root_hash, nonce)
         block = (
             0, block_number, timestamp, difficulty, nonce, previous_block_hash, merkle_root_hash,
             str_block_transactions,
