@@ -8,6 +8,6 @@ from Dependencies.Blockchain import Blockchain
 from Dependencies.Block import Block
 from Dependencies.SyncedArray import SyncedArray
 from Dependencies.Transaction import Transaction
-from Dependencies.Flags import Flags
+from Dependencies.SyncedDictionary import SyncedDictionary
 
 from Dependencies.methods import *

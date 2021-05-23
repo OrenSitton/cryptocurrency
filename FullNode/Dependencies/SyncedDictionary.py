@@ -6,14 +6,14 @@ Python Version: 3
 from threading import Semaphore, Lock
 
 
-class Flags:
+class SyncedDictionary:
     """
-    Flags class, implements flags that can be used across multiple threads simultaneously
+    SyncedDictionary class, implements SyncedDictionary that can be used across multiple threads simultaneously
 
     Attributes
     ----------
-    __flags : dict
-        a dictionary containing the flags
+    __SyncedDictionary : dict
+        a dictionary containing the SyncedDictionary
     name : str
         the name of the list (default "list")
     max_readers : int
@@ -28,7 +28,7 @@ class Flags:
     __init__(name="dictionary")
         initializes the list and locks
     __getitem__(flag)
-        returns the value of flags[flag]
+        returns the value of SyncedDictionary[flag]
      __setitem__(flag, value)
         sets the flag to value
     __str__()
@@ -39,62 +39,58 @@ class Flags:
         releases the write and read locks
     """
 
-    def __init__(self, name="flags", max_readers=2):
+    def __init__(self, max_readers=2):
         """
-        initializer for flags objects
-        :param name: name of the object (to be shown in logging messages)
-        :type name: str
-        :param max_readers: maximum amount of simultaneous readers
+        initializer for SyncedDictionary objects
+        :param max_readers: maximum amount of simultaneous readers (default 2)
         :type max_readers: int
         """
-        if not isinstance(name, str):
-            raise TypeError("Flags.__init__: expected name to be of type str")
         if not isinstance(max_readers, int):
-            raise TypeError("Flags.__init__: expected max_readers to be of type int")
+            raise TypeError("SyncedDictionary.__init__: expected max_readers to be of type int")
 
-        self.__flags = {}
-        self.name = name
+        self.__dict = {}
         self.max_readers = max_readers
         self.semaphore_lock = Semaphore(value=self.max_readers)
         self.write_lock = Lock()
 
-    def __getitem__(self, flag):
+    def __getitem__(self, key):
         """
-        returns the value of flags[flag]
-        :param flag: flag to return item for
-        :type flag: Any
-        :return: flags[flag]
+        returns the value of SyncedDictionary[flag]
+        :param key: flag to return item for
+        :type key: Any
+        :return: SyncedDictionary[flag]
         :rtype: Any
         """
         self.semaphore_lock.acquire()
-        item = self.__flags.get(flag)
+        item = self.__dict.get(key)
         self.semaphore_lock.release()
         return item
 
-    def __setitem__(self, flag, value):
+    def __setitem__(self, key, value):
         self.acquire_edit_permissions()
-        self.__flags[flag] = value
+        self.__dict[key] = value
         self.release_edit_permissions()
 
     def __str__(self):
         """
-        returns string version of the flags
-        :return: string representation of the flags
+        returns string version of the SyncedDictionary
+        :return: string representation of the SyncedDictionary
         :rtype: str
         """
         self.semaphore_lock.acquire()
-        string_representation = "Flag : Value\n------------\n\n"
-        for key, value in self.__flags.items():
-            string_representation += "{} : {}\n".format(key, value)
+        string_representation = ""
+        for key, value in self.__dict.items():
+            string_representation += "{}: {}, ".format(key, value)
+        string_representation = "{" + string_representation[:-1] + "}"
         self.semaphore_lock.release()
 
         return string_representation
 
     def acquire_edit_permissions(self, acquired=0):
         if not isinstance(acquired, int):
-            raise TypeError("Flags.acquire_edit_permissions: expected acquired to be of type int")
+            raise TypeError("SyncedDictionary.acquire_edit_permissions: expected acquired to be of type int")
         if acquired > self.max_readers:
-            raise ValueError("Flags.acquire_edit_permission: expected acquired to be less than max_readers")
+            raise ValueError("SyncedDictionary.acquire_edit_permission: expected acquired to be less than max_readers")
 
         for x in range(self.max_readers - acquired):
             self.semaphore_lock.acquire()
@@ -102,9 +98,9 @@ class Flags:
 
     def release_edit_permissions(self, released=0):
         if not isinstance(released, int):
-            raise TypeError("Flags.release_edit_permissions: expected released to be of type int")
+            raise TypeError("SyncedDictionary.release_edit_permissions: expected released to be of type int")
         if released > self.max_readers:
-            raise ValueError("Flags.release_edit_permission: expected released to be less than max_readers")
+            raise ValueError("SyncedDictionary.release_edit_permission: expected released to be less than max_readers")
 
         for x in range(self.max_readers - released):
             self.semaphore_lock.release()

@@ -4,6 +4,8 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/FullNode.iml" filepath="$PROJECT_DIR$/.idea/FullNode.iml" />
       <module fileurl="file://$PROJECT_DIR$/../PeerToPeerNetwork/.idea/PeerToPeerNetwork.iml" filepath="$PROJECT_DIR$/../PeerToPeerNetwork/.idea/PeerToPeerNetwork.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../Wallet/.idea/Wallet.iml" filepath="$PROJECT_DIR$/../Wallet/.idea/Wallet.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../Wallet Server/.idea/Wallet Server.iml" filepath="$PROJECT_DIR$/../Wallet Server/.idea/Wallet Server.iml" />
       <module fileurl="file://$PROJECT_DIR$/../testFiles/.idea/testFiles.iml" filepath="$PROJECT_DIR$/../testFiles/.idea/testFiles.iml" />
     </modules>
   </component>

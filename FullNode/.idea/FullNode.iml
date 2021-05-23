@@ -6,5 +6,7 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="PeerToPeerNetwork" />
     <orderEntry type="module" module-name="testFiles" />
+    <orderEntry type="module" module-name="Wallet Server" />
+    <orderEntry type="module" module-name="Wallet" />
   </component>
 </module>

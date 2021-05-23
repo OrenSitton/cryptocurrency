@@ -4,8 +4,7 @@ File: BlockTest.py
 Python Version: 3
 Description: 
 """
-from Dependencies import Block
-from full_node import handle_message_block
+from Dependencies.full_node import handle_message_block
 from Dependencies import Blockchain
 import logging
 

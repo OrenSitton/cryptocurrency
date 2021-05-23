@@ -1,6 +1,6 @@
 """
 Author: Oren Sitton
-File: Full Node.py
+File: __main__.py
 Python Version: 3
 Description:
 """
@@ -26,11 +26,12 @@ except ModuleNotFoundError:
         from Crypto.PublicKey import RSA
         from Crypto.Signature import PKCS1_v1_5
     except ModuleNotFoundError:
+        logging.critical("Could not find crypto module")
         exit(-1)
 
 from Dependencies import Block
 from Dependencies import Blockchain
-from Dependencies import Flags
+from Dependencies import SyncedDictionary
 from Dependencies import SyncedArray
 from Dependencies import Transaction
 from Dependencies import calculate_hash
@@ -54,7 +55,7 @@ flags : Flags
 sockets = SyncedArray()
 transactions = SyncedArray()
 thread_queue = queue.Queue()
-flags = Flags()
+flags = SyncedDictionary()
 
 """
 Initiation Functions
@@ -1151,11 +1152,12 @@ def main():
                 address = sock.getpeername()[0]
             except OSError:
                 sock.close()
-            if address in message_queues:
-                if not message_queues[address].empty():
-                    message = message_queues[address].get()
-                    sock.send(message.encode())
-                    logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
+            else:
+                if address in message_queues:
+                    if not message_queues[address].empty():
+                        message = message_queues[address].get()
+                        sock.send(message.encode())
+                        logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
 
         for sock in exceptional:
             address = sock.getpeername()[0]
@@ -1167,7 +1169,7 @@ def main():
             if address in message_queues:
                 del message_queues[address]
 
-        if flags["received new consensus block"]:
+        if flags["received new block"]:
             # TODO: end mining thread
             pass
 

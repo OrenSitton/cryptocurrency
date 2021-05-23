@@ -2,7 +2,7 @@
 Author: Oren Sitton
 File: FullNode.py
 Python Version: 3
-Description: 
+Description: Configure & run full node.
 """
 import logging
 import pickle
@@ -13,7 +13,7 @@ from tkinter import messagebox
 process = ""
 
 
-def config(labels, entries, types, window):
+def config(labels, entries, types):
     for i, key in enumerate(labels):
         entry = entries[i][1]
         value = entry.get()
@@ -30,14 +30,27 @@ def config(labels, entries, types, window):
     var.set("Configured")
     msg = messagebox.showinfo(title="Configured", message="Configured!")
 
-    if isinstance(process, subprocess.Popen):
-        process.kill()
+    terminate_full_node()
 
 
-def run_full_node(window):
+def run_full_node():
     global process
-    # TODO: add exception handling
-    process = subprocess.Popen(['python', 'full_node.py'])
+    if not isinstance(process, subprocess.Popen):
+        logging.info("Initiating process...")
+        process = subprocess.Popen(['python', 'Dependencies\\__main__.py'])
+    else:
+        logging.info("Process already initiated...")
+
+
+def terminate_full_node():
+    global process
+    if isinstance(process, subprocess.Popen):
+        logging.info("Terminating process...")
+        process.kill()
+        process = ""
+    else:
+        logging.info("Process already terminated...")
+    pass
 
 
 def on_closing():
@@ -45,8 +58,7 @@ def on_closing():
     :return:
     :rtype:
     """
-    if isinstance(process, subprocess.Popen):
-        process.kill()
+    terminate_full_node()
     exit()
 
 
@@ -85,11 +97,17 @@ def main():
         entry[0].grid(sticky=tk.W, column=0, row=i)
         entry[1].grid(column=1, row=i)
 
-    run_button = tk.Button(window, width=10, text="configure", command=lambda: config(values, entries, types, window))
+    run_button = tk.Button(window, width=10, text="configure", command=lambda: config(values, entries, types))
     run_button.grid(row=len(values), column=0)
 
-    run_button = tk.Button(window, width=10, text="run", command=lambda: run_full_node(window, ))
-    run_button.grid(row=len(values), column=1)
+    terminate_button = tk.Button(window, width=10, text="terminate", command=lambda: terminate_full_node())
+    terminate_button.grid(row=len(values) + 2, column=1)
+
+    space_frame = tk.Frame(window, width=10, height=10)
+    space_frame.grid(row=len(values) + 1, column=0)
+
+    run_button = tk.Button(window, width=10, text="run", command=lambda: run_full_node())
+    run_button.grid(row=len(values) + 2, column=0)
 
     tk.mainloop()
     pass
