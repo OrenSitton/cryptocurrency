@@ -2,11 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/Orens.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/Orens.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/BlockTest.py" beforeDir="false" afterPath="$PROJECT_DIR$/BlockTest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__main__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../testFiles/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/../testFiles/test3.py" afterDir="false" />
     </list>
@@ -57,7 +55,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.BlockTest">
+  <component name="RunManager" selected="Python.FullNode">
     <configuration name="BlockTest" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="FullNode" />
       <option name="INTERPRETER_OPTIONS" value="" />

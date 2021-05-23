@@ -28,16 +28,34 @@ except ModuleNotFoundError:
     except ModuleNotFoundError:
         logging.critical("Could not find crypto module")
         exit(-1)
+try:
+    from Dependencies import Block
+    from Dependencies import Blockchain
+    from Dependencies import SyncedDictionary
+    from Dependencies import SyncedArray
+    from Dependencies import Transaction
+    from Dependencies import calculate_hash
+    from Dependencies import hexify
+    from Dependencies import hexify_string
+    from Dependencies import dehexify_string
 
-from Dependencies import Block
-from Dependencies import Blockchain
-from Dependencies import SyncedDictionary
-from Dependencies import SyncedArray
-from Dependencies import Transaction
-from Dependencies import calculate_hash
-from Dependencies import hexify
-from Dependencies import hexify_string
-from Dependencies import dehexify_string
+except ModuleNotFoundError:
+    try:
+        from __init__ import Block
+        from __init__ import Blockchain
+        from __init__ import SyncedDictionary
+        from __init__ import SyncedArray
+        from __init__ import Transaction
+        from __init__ import calculate_hash
+        from __init__ import hexify
+        from __init__ import hexify_string
+        from __init__ import dehexify_string
+    except ModuleNotFoundError:
+        logging.critical("Could not find dependencies")
+        exit(-1)
+
+
+
 
 """
 Global Variables
