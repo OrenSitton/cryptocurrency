@@ -78,10 +78,13 @@ class Block:
 
     def __str__(self):
         return_string = "Block Number: {}\nTimestamp: {}\nDifficulty: {}\nNonce: {}\nPrevious Hash: {}\nMerkle Root " \
-                        "Hash: {}\n".format(self.block_number, self.timestamp, self.difficulty, self.nonce, self.prev_hash, self.merkle_root_hash)
+                        "Hash: {}\n".format(self.block_number, self.timestamp, self.difficulty, self.nonce,
+                                            self.prev_hash, self.merkle_root_hash)
 
         for t in self.transactions:
             return_string += "Transaction:\n " + t.__str__() + "\n"
+
+        return_string += "Self Hash: {}\n".format(self.self_hash)
         return return_string
 
     def network_format(self):
@@ -140,6 +143,8 @@ class Block:
 
 
 def main():
+    print(Block.from_network_format(
+        "d00000160aabee816000000000000000000000000000000000000000000000000000000000053cbe50000000000000000000000000000000000000000000000000000000000000000f5add82b07777f5c4f0aee11f21dee1a78729664339bb667021c1df7e46365e80100153e60aabea40130819f300d06092a864886f70d010101050003818d0030818902818100cd3074f8fd25a61e035854a2a6a7d8542272eac398bbd6dbecea9e841f83fe061702789c28b606ead420dc6a5845b9b79e78bba4e2df403e5d42ca455981fbf07e0beeb5bd63d4ba5695dc52a9af652543577e8f4eaf8cb1da98a1dd0b6ee09882ec38c845b6a026285489ede929c617db74bc1368eb51501688b760c76b85e70203010001000a"))
     pass
 
 

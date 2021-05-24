@@ -41,7 +41,7 @@ def config():
     config_window.resizable(width=False, height=False)
 
     with open("Dependencies\\config.cfg", "rb") as infile:
-        values: dict = pickle.load(infile)
+        values = pickle.load(infile)
 
     types = {
         "ip address": str,
@@ -59,19 +59,24 @@ def config():
 
     entries = []
     for key in values:
-        var = tk.StringVar()
-        var.set(values[key])
-        entry = tk.Entry(config_window, width=30)
+        frame = tk.Frame(config_window)
+        entry = tk.Entry(frame, width=30 , justify=tk.LEFT)
         entry.insert(tk.END, values[key])
-        label = tk.Label(config_window, text=key, justify=tk.LEFT, anchor="w")
+        label = tk.Label(frame, text=key, justify=tk.LEFT, anchor="e")
+
+        label.pack(side=tk.RIGHT)
+        entry.pack(side=tk.RIGHT)
+        frame.pack(side=tk.TOP)
         entries.append((label, entry))
 
     for i, entry in enumerate(entries):
-        entry[0].grid(sticky=tk.W, column=0, row=i)
-        entry[1].grid(column=1, row=i)
+        entry[0].pack(side=tk.TOP)
+        # entry[0].grid(sticky=tk.W, column=0, row=i)
+        # entry[1].grid(column=1, row=i)
 
     run_button = tk.Button(config_window, width=10, text="⚙", command=lambda: configure(values, entries, types, config_window))
-    run_button.grid(row=len(values), column=0)
+    run_button.pack(side=tk.TOP)
+    # run_button.grid(row=len(values), column=0)
 
     config_window.mainloop()
 
@@ -136,3 +141,4 @@ def main():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format="%(threadName)s [%(asctime)s]: %(message)s")
     main()
+# TODO: public key field as directory, not string

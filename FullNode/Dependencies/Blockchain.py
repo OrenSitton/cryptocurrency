@@ -283,8 +283,6 @@ class Blockchain:
 
 
 def main():
-    print(Blockchain().get_block_consensus_chain(1))
-    print(Block.from_network_format(Blockchain().get_block_consensus_chain(1).network_format()))
     pass
 
 

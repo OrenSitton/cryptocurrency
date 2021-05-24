@@ -115,13 +115,17 @@ def initialize_client(ip, port):
     :return: client socket object
     :rtype: socket.socket
     """
-    # TODO: check if client already exists
     if not isinstance(ip, str):
         raise TypeError("initialize_client: expected ip to be of type str")
     if not isinstance(port, int):
         raise TypeError("initialize_client: expected port to be of type int")
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    for sock in sockets:
+        if sock.getpeername()[0] == ip:
+            logging.info("[{}, {}]: Connection already exists".format(ip, port))
+            return
 
     try:
         logging.info("Attempting connection to [{}, {}]".format(ip, port))
@@ -1141,16 +1145,21 @@ def main():
                 logging.info("New node attempting connection to server")
                 client_socket, address = server_socket.accept()
 
-                # TODO: check if client already exists
+                exists = False
+                for other_sock in sockets:
+                    if other_sock.getpeername()[0] == address[0]:
+                        logging.info("[{}, {}]: Connection already exists".format(address[0], address[1]))
+                        client_socket.close()
+                        exists = True
+                if not exists:
+                    sockets.append(client_socket)
+                    logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
 
-                sockets.append(client_socket)
-                logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
+                    client_socket.setblocking(False)
 
-                client_socket.setblocking(False)
-
-                if address[0] not in message_queues:
-                    message_queues[address[0]] = queue.Queue()
-                message_queues[address[0]].put(get_most_recent_block)
+                    if address[0] not in message_queues:
+                        message_queues[address[0]] = queue.Queue()
+                    message_queues[address[0]].put(get_most_recent_block)
 
             else:
                 try:
@@ -1168,7 +1177,8 @@ def main():
 
                         try:
                             message = sock.recv(int(size, 16)).decode()
-                            logging.info("[{}, {}]: Received message from node".format(sock.getpeername()[0], sock.getpeername()[1]))
+                            logging.info("[{}, {}]: Received message from node".format(sock.getpeername()[0],
+                                                                                       sock.getpeername()[1]))
                             logging.debug(
                                 "[{}, {}]: Message Received: \n {}".format(sock.getpeername()[0], sock.getpeername()[1],
                                                                            message))
@@ -1261,8 +1271,7 @@ def main():
             mining_thread.start()
 
         if flags["finished seeding"]:
-            # TODO: join seeding thread
-            pass
+            seeding_thread.join()
 
         if flags["exception"]:
             # TODO: handle exceptions
