@@ -65,12 +65,15 @@ thread_queue : queue.Queue
     queue to load return value from mining thread
 flags : Flags
     flags object to coordinate between threads
+message_queues : queue.Queue
+    dictionary of address : queue of pending messages to address
 """
 
 sockets = SyncedArray()
 transactions = SyncedArray()
 thread_queue = queue.Queue()
 flags = SyncedDictionary()
+message_queues = {}
 
 """
 Initiation Functions
@@ -139,6 +142,10 @@ def initialize_client(ip, port):
 
     else:
         sockets.append(client_socket)
+
+        if client_socket.getpeername()[0] not in message_queues:
+            message_queues[client_socket.getpeername()[0]] = queue.Queue()
+        message_queues[client_socket.getpeername()[0]].put("00047c0000000000000000000000000000000000000000000000000000000000000000000000")
 
 
 def initialize_clients(addresses, port):
@@ -884,9 +891,13 @@ def handle_message_blocks_request(message, blockchain):
     reply = "h{}".format(hexify(last_block - first_block + 1, 6))
 
     for i in range(first_block, last_block + 1):
-        block = blockchain.get_block_consensus_chain(i)
-        if block:
-            reply += "{}{}".format(calculate_message_length(block.network_format()), block.network_format())
+        try:
+            block = blockchain.get_block_consensus_chain(i)
+        except IndexError:
+            logging.info("Message is an invalid blocks request")
+        else:
+            if block:
+                reply += "{}{}".format(calculate_message_length(block.network_format()), block.network_format())
     logging.info("Message is a block request message")
     return "{}{}".format(calculate_message_length(reply), reply), 1
 
@@ -1101,6 +1112,7 @@ def main():
     global thread_queue
     global flags
     global sockets
+    global message_queues
 
     threading.current_thread().name = "MainNodeThread"
 
@@ -1131,8 +1143,6 @@ def main():
 
     mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
     mining_thread.start()
-
-    message_queues = {}
 
     get_most_recent_block = "00047c0000000000000000000000000000000000000000000000000000000000000000000000"
 
@@ -1179,10 +1189,6 @@ def main():
                             message = sock.recv(int(size, 16)).decode()
                             logging.info("[{}, {}]: Received message from node".format(sock.getpeername()[0],
                                                                                        sock.getpeername()[1]))
-                            logging.debug(
-                                "[{}, {}]: Message Received: \n {}".format(sock.getpeername()[0], sock.getpeername()[1],
-                                                                           message))
-
                         except ConnectionResetError:
                             logging.info(
                                 "[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
@@ -1233,7 +1239,6 @@ def main():
                         message = message_queues[address].get()
                         sock.send(message.encode())
                         logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
-                        logging.debug("Message: \n{}".format(message))
 
         for sock in exceptional:
             address = sock.getpeername()[0]
