@@ -137,7 +137,7 @@ def initialize_client(ip, port):
                      .format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
 
     except (ConnectionRefusedError, socket.gaierror, TimeoutError, WindowsError):
-        logging.info("[{}, {}]: Connection attempt refused [{}]"
+        logging.info("[{}, {}]: Connection attempt refused"
                      .format(ip, port))
 
     else:
@@ -1243,8 +1243,14 @@ def main():
                 if address in message_queues:
                     if not message_queues[address].empty():
                         message = message_queues[address].get()
-                        sock.send(message.encode())
-                        logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
+                        try:
+                            sock.send(message.encode())
+                        except ConnectionResetError:
+                            sock.close()
+                            sockets.remove(sock)
+                        else:
+                            logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
+
 
         for sock in exceptional:
             address = sock.getpeername()[0]
