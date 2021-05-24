@@ -875,6 +875,8 @@ def handle_message_blocks(message, blockchain):
 
         message = message[int(size, 16) + size_length:]
 
+    return None, -1
+
 
 def handle_message_blocks_request(message, blockchain):
     """
