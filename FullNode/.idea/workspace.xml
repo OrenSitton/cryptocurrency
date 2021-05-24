@@ -3,8 +3,9 @@
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/BlockTest.py" beforeDir="false" afterPath="$PROJECT_DIR$/BlockTest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/Blockchain.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/Blockchain.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Dependencies/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__main__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.cfg" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -53,7 +54,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.FullNode">
+  <component name="RunManager" selected="Python.BlockTest">
     <configuration name="Block" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="FullNode" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -169,9 +170,9 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.FullNode" />
+        <item itemvalue="Python.BlockTest" />
         <item itemvalue="Python.Block" />
         <item itemvalue="Python.Blockchain" />
-        <item itemvalue="Python.BlockTest" />
         <item itemvalue="Python.PeerDiscoveryServer" />
       </list>
     </recent_temporary>
@@ -253,7 +254,13 @@
       <option name="presentableId" value="LOCAL‎00011" />
       <updated>1621802496254</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL‎00012" summary="added blocks request for outgoing new connections">
+      <created>1621873616130</created>
+      <option name="number" value="LOCAL‎00012" />
+      <option name="presentableId" value="LOCAL‎00012" />
+      <updated>1621873616130</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -280,6 +287,7 @@
     <MESSAGE value="fixed blocks message building" />
     <MESSAGE value="updated message length fields" />
     <MESSAGE value="fixed hash calculations &amp; logging" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixed hash calculations &amp; logging" />
+    <MESSAGE value="added blocks request for outgoing new connections" />
+    <option name="LAST_COMMIT_MESSAGE" value="added blocks request for outgoing new connections" />
   </component>
 </project>

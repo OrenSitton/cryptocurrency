@@ -4,6 +4,8 @@ File: Blockchain.py
 Python Version: 3
 """
 
+from threading import Semaphore, Lock
+
 from mysql import connector
 
 try:
@@ -75,6 +77,8 @@ class Blockchain:
         if not isinstance(password, str):
             raise TypeError("Blockchain.__init__: expected password to be of type str")
 
+        self.lock = Lock()
+
         # connect to MySQL server
         self.db = connector.connect(
             host=host,
@@ -118,9 +122,13 @@ class Blockchain:
         if block_number < 1 or block_number > self.__len__():
             raise IndexError("Blockchain.__getitem__: index out of range")
 
+        self.lock.acquire()
+
         self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
 
         results = self.cursor.fetchall()
+
+        self.lock.release()
 
         for x in range(len(results)):
             results[x] = Block(results[x])
@@ -133,6 +141,7 @@ class Blockchain:
                 if result[3] == prev_hash:
                     return [result]
 
+        self.lock.release()
         return None
 
     def __len__(self):
@@ -141,10 +150,13 @@ class Blockchain:
         :return: length of the blockchain's consensus chain
         :rtype: int
         """
+        self.lock.acquire()
 
         self.cursor.execute("SELECT * FROM Blocks ORDER BY block_number DESC LIMIT 1")
 
         block = self.cursor.fetchall()
+
+        self.lock.release()
 
         if block:
             return block[0][1]
@@ -157,9 +169,13 @@ class Blockchain:
         :return: size of the blockchain's database
         :rtype: int
         """
+        self.lock.acquire()
         self.cursor.execute("SELECT * FROM Blocks")
 
-        return len(self.cursor.fetchall())
+        size = len(self.cursor.fetchall())
+        self.lock.release()
+
+        return size
 
     def append(self, block_number, timestamp, difficulty, nonce, previous_hash, merkle_root_hash, transactions,
                self_hash):
@@ -205,11 +221,15 @@ class Blockchain:
         for x in transactions:
             t += "{},".format(x)
         t = t[:-1]
+
+        self.lock.acquire()
         self.cursor.execute("INSERT INTO Blocks (block_number, timestamp, difficulty, nonce, prev_hash,"
                             " merkle_root_hash, transactions, self_hash) VALUES ({}, {}, {}, \"{}\", \"{}\","
                             "\"{}\", \"{}\", \"{}\")".format(block_number, timestamp, difficulty, nonce, previous_hash,
                                                              merkle_root_hash, t, self_hash))
         self.db.commit()
+
+        self.lock.release()
 
     def delete(self, block_hash):
         """
@@ -220,7 +240,12 @@ class Blockchain:
         if not isinstance(block_hash, str):
             raise TypeError("Blockchain.delete: expected block_hash to be of type str")
 
+        self.lock.acquire()
+
         self.cursor.execute("DELETE FROM Blocks WHERE self_hash=\"{}\"".format(block_hash))
+        self.db.commit()
+
+        self.lock.release()
 
     def get_block_by_hash(self, block_hash):
         """
@@ -233,8 +258,12 @@ class Blockchain:
         if not isinstance(block_hash, str):
             raise TypeError("Blockchain.get_block_by_hash: expected block_hash to be of type str")
 
+        self.lock.acquire()
+
         self.cursor.execute("SELECT * FROM Blocks WHERE self_hash=\"{}\"".format(block_hash))
         result = self.cursor.fetchall()
+
+        self.lock.release()
 
         if result:
             return Block(result[0])
@@ -262,9 +291,12 @@ class Blockchain:
         if block_number < self.__len__() - 1:
             return self.__getitem__(block_number)[0]
 
+        self.lock.acquire()
         self.cursor.execute("SELECT * FROM Blocks WHERE block_number={}".format(block_number))
 
         results = self.cursor.fetchall()
+
+        self.lock.release()
 
         for x in range(len(results)):
             results[x] = Block(results[x])

@@ -136,9 +136,9 @@ def initialize_client(ip, port):
         logging.info("[{}, {}]: Connected client socket to node"
                      .format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
 
-    except (ConnectionRefusedError, socket.gaierror, TimeoutError, WindowsError) as e:
+    except (ConnectionRefusedError, socket.gaierror, TimeoutError, WindowsError):
         logging.info("[{}, {}]: Connection attempt refused [{}]"
-                     .format(ip, port, str(e)))
+                     .format(ip, port))
 
     else:
         sockets.append(client_socket)
@@ -854,21 +854,26 @@ def handle_message_blocks(message, blockchain):
     if not isinstance(blockchain, Blockchain):
         raise TypeError("handle_message_blocks: expected blockchain to be of type Blockchain")
     logging.info("Message is a blocks message")
-    block_count = int(message[1:7], 16)
-    message = message[7:]
-    for i in range(block_count):
-        length_size = 5
-        block_size = message[:length_size]
 
-        while block_size.replace("f", "") == "":
-            message = message[length_size:]
-            length_size *= 2
-            block_size = message[:length_size]
+    message = message[1:]
+    block_count = int(message[:6], 16)
+    message = message[6:]
 
-        block_size = int(block_size, 16)
+    while message:
+        size_length = 5
 
-        handle_message_block(message[length_size: length_size + block_size], blockchain)
-        message = message[length_size + block_size:]
+        size = message[:size_length]
+
+        while size.replace('f', '') == '':
+            message = message[size_length:]
+            size_length *= 2
+            size = message[:size_length]
+
+        block = message[size_length: int(size, 16) + size_length]
+
+        handle_message_block(block, blockchain)
+
+        message = message[int(size, 16) + size_length:]
 
 
 def handle_message_blocks_request(message, blockchain):
@@ -899,6 +904,7 @@ def handle_message_blocks_request(message, blockchain):
             if block:
                 reply += "{}{}".format(calculate_message_length(block.network_format()), block.network_format())
     logging.info("Message is a block request message")
+    print(reply)
     return "{}{}".format(calculate_message_length(reply), reply), 1
 
 
@@ -1174,14 +1180,14 @@ def main():
             else:
                 try:
                     size = sock.recv(5).decode()
-                except ConnectionResetError:
+                except (ConnectionResetError, ConnectionAbortedError):
                     sock.close()
                     sockets.remove(sock)
 
                 else:
                     if size:
                         size_length = 5
-                        while len(size.replace('f', "")) == 0:
+                        while size.replace('f', "") == "":
                             size_length *= 2
                             size = sock.recv(size_length).decode()
 
