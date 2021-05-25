@@ -783,7 +783,7 @@ def handle_message_block(message, blockchain):
 
     # raise flag if appropriate
     if blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash == block.self_hash:
-        flags["received new consensus block"] = True
+        flags["received new block"] = True
 
     # remove transactions from list if necessary
     for t in transactions:
