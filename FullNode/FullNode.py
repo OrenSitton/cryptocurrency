@@ -37,7 +37,7 @@ def terminate(silent=False):
 def config():
     config_window = tk.Tk()
     config_window.title("")
-    config_window.iconbitmap("Dependencies\\configure.ico")
+    config_window.iconbitmap("Dependencies\\GUI\\configure.ico")
     config_window.resizable(width=False, height=False)
 
     with open("Dependencies\\config.cfg", "rb") as infile:
@@ -108,7 +108,7 @@ def main():
     myFont = ("Times New Roman", 20, "bold")
     window = tk.Tk()
     window.title("SittCoin")
-    window.wm_iconbitmap('Dependencies\\miner.ico')
+    window.wm_iconbitmap('Dependencies\\GUI\\miner.ico')
     window.resizable(width=False, height=False)
     window.protocol("WM_DELETE_WINDOW", on_closing)
 

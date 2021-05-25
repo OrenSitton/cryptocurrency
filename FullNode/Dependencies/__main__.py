@@ -906,7 +906,6 @@ def handle_message_blocks_request(message, blockchain):
             if block:
                 reply += "{}{}".format(calculate_message_length(block.network_format()), block.network_format())
     logging.info("Message is a block request message")
-    print(reply)
     return "{}{}".format(calculate_message_length(reply), reply), 1
 
 
