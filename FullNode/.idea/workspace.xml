@@ -3,6 +3,9 @@
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../testFiles/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/../testFiles/test3.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -26,17 +29,17 @@
   </component>
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/Dependencies" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../Wallet/Dependencies" />
     <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet\Dependencies" />
       <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
       <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet Server" />
-      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet\Dependencies" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -51,20 +54,20 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.FullNode">
-    <configuration name="Block" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="FullNode" />
+  <component name="RunManager" selected="Python.Wallet">
+    <configuration name="Wallet" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="Wallet" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Dependencies" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../Wallet" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Dependencies/Block.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../Wallet/Wallet.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -73,19 +76,19 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="BlockTest" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="FullNode" />
+    <configuration name="test2" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="testFiles" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../testFiles" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/BlockTest.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../testFiles/test2.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -94,19 +97,19 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Blockchain" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="FullNode" />
+    <configuration name="test3" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="testFiles" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Dependencies" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../testFiles" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Dependencies/Blockchain.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../testFiles/test3.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -115,19 +118,19 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="FullNode" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="FullNode" />
+    <configuration name="test4" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="testFiles" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../testFiles" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/FullNode.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../testFiles/test4.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -136,19 +139,19 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="PeerDiscoveryServer" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="PeerToPeerNetwork" />
+    <configuration name="tmp" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="Wallet" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../PeerToPeerNetwork" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../Wallet" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../PeerToPeerNetwork/PeerDiscoveryServer.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../Wallet/tmp.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -158,19 +161,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.FullNode" />
-      <item itemvalue="Python.BlockTest" />
-      <item itemvalue="Python.PeerDiscoveryServer" />
-      <item itemvalue="Python.Blockchain" />
-      <item itemvalue="Python.Block" />
+      <item itemvalue="Python.Wallet" />
+      <item itemvalue="Python.test2" />
+      <item itemvalue="Python.test3" />
+      <item itemvalue="Python.tmp" />
+      <item itemvalue="Python.test4" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.FullNode" />
-        <item itemvalue="Python.BlockTest" />
-        <item itemvalue="Python.Block" />
-        <item itemvalue="Python.Blockchain" />
-        <item itemvalue="Python.PeerDiscoveryServer" />
+        <item itemvalue="Python.Wallet" />
+        <item itemvalue="Python.tmp" />
+        <item itemvalue="Python.test4" />
+        <item itemvalue="Python.test3" />
+        <item itemvalue="Python.test2" />
       </list>
     </recent_temporary>
   </component>

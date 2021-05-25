@@ -64,15 +64,10 @@ def config():
         entry.insert(tk.END, values[key])
         label = tk.Label(frame, text=key, justify=tk.LEFT, anchor="e")
 
-        label.pack(side=tk.RIGHT)
-        entry.pack(side=tk.RIGHT)
+        label.pack(side=tk.TOP)
+        entry.pack(side=tk.TOP)
         frame.pack(side=tk.TOP)
         entries.append((label, entry))
-
-    for i, entry in enumerate(entries):
-        entry[0].pack(side=tk.TOP)
-        # entry[0].grid(sticky=tk.W, column=0, row=i)
-        # entry[1].grid(column=1, row=i)
 
     run_button = tk.Button(config_window, width=10, text="⚙", command=lambda: configure(values, entries, types, config_window))
     run_button.pack(side=tk.TOP)
