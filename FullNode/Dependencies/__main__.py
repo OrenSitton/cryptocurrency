@@ -148,7 +148,7 @@ def initialize_client(ip, port):
         if client_socket.getpeername()[0] not in message_queues:
             message_queues[client_socket.getpeername()[0]] = queue.Queue()
         message_queues[client_socket.getpeername()[0]].put(
-            "00047c0000000000000000000000000000000000000000000000000000000000000000000000")
+            "00047c0000000000000000000000000000000000000000000000000000000000000000000000", "block request")
 
 
 def initialize_clients(addresses, port):
@@ -907,6 +907,7 @@ def handle_message_blocks_request(message, blockchain):
             block = blockchain.get_block_consensus_chain(i)
         except IndexError:
             logging.info("Message is an invalid blocks request")
+            return None, "", -1
         else:
             if block:
                 reply += "{}{}".format(calculate_message_length(block.network_format()), block.network_format())
@@ -1195,7 +1196,7 @@ def main():
 
                     if address[0] not in message_queues:
                         message_queues[address[0]] = queue.Queue()
-                    message_queues[address[0]].put("00047c0000000000000000000000000000000000000000000000000000000000000000000000")
+                    message_queues[address[0]].put("00047c0000000000000000000000000000000000000000000000000000000000000000000000", "block request")
 
             else:
                 try:
@@ -1228,6 +1229,8 @@ def main():
                                 logging.info("[{}, {}]: Received message from node".format(sock.getpeername()[0],
                                                                                            sock.getpeername()[1]))
                                 reply = handle_message(message, blockchain)
+                                print("message: {}".format(message))
+                                print("reply: {}".format(reply))
 
                                 if reply[2] == -1:
                                     logging.info("[{}, {}]: No reply")
