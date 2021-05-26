@@ -148,7 +148,7 @@ def initialize_client(ip, port):
         if client_socket.getpeername()[0] not in message_queues:
             message_queues[client_socket.getpeername()[0]] = queue.Queue()
         message_queues[client_socket.getpeername()[0]].put(
-            "00047c0000000000000000000000000000000000000000000000000000000000000000000000", "block request")
+            ("00047c0000000000000000000000000000000000000000000000000000000000000000000000", "block request"))
 
 
 def initialize_clients(addresses, port):
@@ -1115,7 +1115,7 @@ def mine_new_block(blockchain):
         block = blockchain.get_block_consensus_chain(blockchain.__len__())
 
         message = block.network_format()
-        thread_queue.put("{}{}".format(calculate_message_length(message), message))
+        thread_queue.put(("{}{}".format(calculate_message_length(message), message)))
         flags["created new block"] = True
         logging.info("Created new block")
 
@@ -1196,7 +1196,7 @@ def main():
 
                     if address[0] not in message_queues:
                         message_queues[address[0]] = queue.Queue()
-                    message_queues[address[0]].put("00047c0000000000000000000000000000000000000000000000000000000000000000000000", "block request")
+                    message_queues[address[0]].put(("00047c0000000000000000000000000000000000000000000000000000000000000000000000", "block request"))
 
             else:
                 try:
@@ -1239,7 +1239,7 @@ def main():
                                     logging.info("[{}, {}]: Replying to sender")
                                     if sock.getpeername()[0] not in message_queues:
                                         message_queues[sock.getpeername()[0]] = queue.Queue()
-                                    message_queues[sock.getpeername()[0]].put(reply[0], reply[1])
+                                    message_queues[sock.getpeername()[0]].put((reply[0], reply[1]))
 
                                 elif reply[2] == 2:
                                     logging.info("[{}, {}]: Sending reply to all nodes")
@@ -1247,7 +1247,7 @@ def main():
                                     for other_sock in sockets:
                                         if other_sock.getpeername()[0] not in message_queues:
                                             message_queues[other_sock.getpeername()[0]] = queue.Queue()
-                                        message_queues[other_sock.getpeername()[0]].put(reply[0], reply[1])
+                                        message_queues[other_sock.getpeername()[0]].put((reply[0], reply[1]))
 
                     else:
                         logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
@@ -1332,7 +1332,7 @@ def main():
                 for sock in sockets:
                     if sock.getpeername()[0] not in message_queues:
                         message_queues[sock.getpeername()[0]] = queue.Queue()
-                    message_queues[sock.getpeername()[0]].put(message, "new block")
+                    message_queues[sock.getpeername()[0]].put((message, "new block"))
 
             mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
             mining_thread.start()
