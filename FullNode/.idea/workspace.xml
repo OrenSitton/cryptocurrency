@@ -55,7 +55,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.__main__">
+  <component name="RunManager" selected="Python.FullNode">
     <configuration name="FullNode" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="FullNode" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -170,8 +170,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.__main__" />
         <item itemvalue="Python.FullNode" />
+        <item itemvalue="Python.__main__" />
         <item itemvalue="Python.Wallet" />
         <item itemvalue="Python.WalletServer" />
         <item itemvalue="Python.__main__ (1)" />
