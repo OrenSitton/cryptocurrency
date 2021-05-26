@@ -1163,9 +1163,8 @@ def main():
     seeding_thread.start()
 
     mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-    if len(sockets):
-        mining_thread.start()
-        flags["mining_thread_running"] = True
+    mining_thread.start()
+    flags["mining_thread_running"] = True
 
     while True:
         inputs = sockets.array + [server_socket]
@@ -1277,23 +1276,24 @@ def main():
                             logging.info("[{}, {}]: Sent {} message to node".format(address[0], address[1], message[1]))
 
         for sock in exceptional:
-            try:
-                address = sock.getpeername()
-            except connection_errors:
-                sock.close()
-                sockets.remove(sock)
-            else:
-                sock.close()
-                sockets.remove(sock)
-                for other_sock in sockets:
-                    if other_sock.getpeername()[0] == address:
-                        other_sock.close()
-                        sockets.remove(other_sock)
+            if sock in sockets:
+                try:
+                    address = sock.getpeername()
+                except connection_errors:
+                    sock.close()
+                    sockets.remove(sock)
+                else:
+                    sock.close()
+                    sockets.remove(sock)
+                    for other_sock in sockets:
+                        if other_sock.getpeername()[0] == address:
+                            other_sock.close()
+                            sockets.remove(other_sock)
 
-                if address in message_queues:
-                    del message_queues[address]
+                    if address in message_queues:
+                        del message_queues[address]
 
-                logging.info("[{}, {}]: Node disconnected from server".format(address[0], address[1]))
+                    logging.info("[{}, {}]: Node disconnected from server".format(address[0], address[1]))
 
         if flags["received new block"]:
             flags["received new block"] = False
@@ -1306,10 +1306,9 @@ def main():
                 while not thread_queue.empty():
                     thread_queue.get()
 
-            if len(sockets):
-                mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-                mining_thread.start()
-                flags["mining thread_running"] = True
+            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
+            mining_thread.start()
+            flags["mining thread_running"] = True
 
         if flags["created new block"]:
             flags["created new block"] = False
@@ -1327,18 +1326,12 @@ def main():
                         message_queues[sock.getpeername()[0]] = queue.Queue()
                     message_queues[sock.getpeername()[0]].put(message)
 
-            if len(sockets):
-                mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-                mining_thread.start()
-                flags["mining thread_running"] = True
+            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
+            mining_thread.start()
+            flags["mining thread running"]= True
 
         if flags["finished seeding"]:
             seeding_thread.join()
-
-        if not flags["mining thread_running"] and len(sockets):
-            mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-            mining_thread.start()
-            flags["mining thread running"] = True
 
         sock_removals = []
 
