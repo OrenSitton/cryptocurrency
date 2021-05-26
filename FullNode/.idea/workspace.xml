@@ -3,11 +3,12 @@
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/BlockTest.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Dependencies/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__main__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/configure.ico" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/GUI/configure.ico" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/miner.ico" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/GUI/miner.ico" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.cfg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Wallet Server/wallet_server.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Wallet/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet/Dependencies/config.cfg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Wallet/Wallet.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet/Wallet.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../testFiles/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/../testFiles/test3.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -32,17 +33,18 @@
   </component>
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../Wallet Server/Dependencies/GUI" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/Dependencies" />
     <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
   </component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet Server" />
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet Server\Dependencies\GUI" />
+      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet\Dependencies" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies\GUI" />
-      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
-    </key>
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet Server" />
-      <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet\Dependencies" />
       <recent name="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\FullNode\Dependencies" />
     </key>
   </component>
@@ -58,28 +60,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.WalletServer">
-    <configuration name="FullNode (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="Wallet Server" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../Wallet Server" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\Orens\Documents\Cyber Project\cryptocurrency\Wallet Server\WalletServer.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
+  <component name="RunManager" selected="Python.__main__">
     <configuration name="FullNode" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="FullNode" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -143,19 +124,40 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tmp" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="Wallet" />
+    <configuration name="__main__ (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="Wallet Server" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../Wallet" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../Wallet Server/Dependencies" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../Wallet/tmp.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../Wallet Server/Dependencies/__main__.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="__main__" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="FullNode" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Dependencies" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Dependencies/__main__.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -165,19 +167,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.Wallet" />
-      <item itemvalue="Python.tmp" />
       <item itemvalue="Python.FullNode" />
-      <item itemvalue="Python.FullNode (1)" />
+      <item itemvalue="Python.__main__ (1)" />
       <item itemvalue="Python.WalletServer" />
+      <item itemvalue="Python.Wallet" />
+      <item itemvalue="Python.__main__" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.WalletServer" />
+        <item itemvalue="Python.__main__" />
         <item itemvalue="Python.FullNode" />
-        <item itemvalue="Python.FullNode (1)" />
         <item itemvalue="Python.Wallet" />
-        <item itemvalue="Python.tmp" />
+        <item itemvalue="Python.WalletServer" />
+        <item itemvalue="Python.__main__ (1)" />
       </list>
     </recent_temporary>
   </component>

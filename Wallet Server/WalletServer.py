@@ -18,13 +18,12 @@ class FullNodeWindow(Tk):
 
         self.state = False
         self.process = ""
-
-        self.title("SittCoin Full Node")
-        self.iconbitmap("Dependencies\\GUI\\miner.ico")
+        self.title("SittCoin Wallet Server")
+        self.iconbitmap("Dependencies\\GUI\\wallet.ico")
         self.resizable(width=False, height=False)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        self.title = Label(self, width=20, text="SittCoin Full Node", font=("Palatino", 20))
+        self.title = Label(self, width=20, text="SittCoin Wallet Server", font=("Palatino", 20))
 
         self.run_button = Button(self, width=10, text="Run\n▶", font=("Times New Roman", 12), command=self.run_command)
         self.terminate_button = Button(self, width=10, text="Terminate\n■", font=("Times New Roman", 12), command=self.terminate_command)
@@ -69,8 +68,10 @@ class FullNodeWindow(Tk):
             values= pickle.load(infile)
 
         types = {
-            "ip address": str,
-            "port": int,
+            "node ip address": str,
+            "node port": int,
+            "wallet ip address": str,
+            "wallet port": int,
             "seed address": str,
             "seed port": int,
             "sql address": str,
@@ -79,7 +80,6 @@ class FullNodeWindow(Tk):
             "default difficulty": int,
             "block reward": int,
             "difficulty change count": int,
-            "public key": str
         }
 
         entries = []
@@ -124,7 +124,6 @@ class FullNodeWindow(Tk):
 
 
 def main():
-    myFont = ("Times New Roman", 20, "bold")
     window = FullNodeWindow()
     window.mainloop()
 

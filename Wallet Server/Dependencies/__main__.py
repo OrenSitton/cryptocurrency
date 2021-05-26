@@ -633,7 +633,7 @@ def handle_message(message, blockchain):
     redirects message to relevant message handling function
     :param message: message to handle
     :type message: str
-    :param blockchain: BLockchain to use for relevant messages 
+    :param blockchain: BLockchain to use for relevant messages
     :type blockchain: Blockchain
     :return: reply message, along with an int to specify who to reply to (-1: no one, 1: message sender, 2: all nodes)
     :rtype: tuple
@@ -657,7 +657,7 @@ def handle_message(message, blockchain):
         logging.debug("Message is invalid (unrecognized message type)")
         reply = build_error_message("unrecognized message type")
         reply = "{}{}".format(calculate_message_length(reply), reply)
-        return (reply, "error"), 1
+        return reply, 1
     else:
         return message_handling_functions[message_type]()
 
@@ -680,38 +680,38 @@ def handle_message_block(message, blockchain):
         block = Block.from_network_format(message)
     except ValueError:
         logging.info("Message is an invavlid block [message is in an incorrect format]")
-        return (None, ""), -1
+        return None, -1
 
     # check if block number relevant
     if block.block_number < blockchain.__len__() - 1:
         logging.info("Message is an invalid block [block number is not relevant]")
-        return (None, ""), -1
+        return None, -1
 
     # check if block already received
     if blockchain.get_block_by_hash(block.self_hash):
         logging.info("Message is an invalid block [block already received]")
-        return (None, ""), -1
+        return None, -1
 
     if block.block_number != 1:
         # check if previous block exists
         previous_block = blockchain.get_block_by_hash(block.prev_hash)
         if not previous_block and block.block_number > blockchain.__len__():
             msg = build_get_blocks_message(blockchain.__len__(), block.block_number)
-            return ("{}{}".format(hexify(len(message), 5), msg), "blocks request"), 1
+            return "{}{}".format(hexify(len(message), 5), msg), 1
         elif not previous_block:
             logging.info("Message is an invalid block [block is not in consensus chain]")
-            return (None, ""), -1
+            return None, -1
 
         # validate time created
         if block.timestamp <= previous_block.timestamp:
             logging.info("Message is an invalid block [block was created before previous block]")
-            return (None, ""), -1
+            return None, -1
 
     # validate difficulty
     if block.block_number <= 2016:
         if block.difficulty != config("default difficulty"):
             logging.info("Message is an invalid block [block's difficulty is wrong]")
-            return (None, ""), -1
+            return None, -1
     else:
         maximum_block = blockchain.get_block_by_hash(block.prev_hash)
         while maximum_block.block_number % 2016 != 0:
@@ -723,7 +723,7 @@ def handle_message_block(message, blockchain):
         if block.difficulty != calculate_difficulty(delta_t, blockchain.get_block_by_hash(
                 maximum_block.prev_hash).difficulty):
             logging.info("Message is an invalid block [block's difficulty is wrong]")
-            return (None, ""), -1
+            return None, -1
 
     # validate nonce
     maximum = 2 ** (256 - block.difficulty)
@@ -732,37 +732,37 @@ def handle_message_block(message, blockchain):
 
     if int_hash > maximum:
         logging.info("Message is an invalid block [hash does not match difficulty]")
-        return (None, ""), -1
+        return None, -1
 
     # validate first transaction
     if len(block.transactions[0].inputs):
         logging.info("Message is an invalid block [first transaction contains inputs]")
-        return (None, ""), -1
+        return None, -1
     elif len(block.transactions[0].outputs) != 1:
         logging.info("Message is an invalid block [first transaction has more than one output]")
-        return (None, ""), -1
+        return None, -1
     elif block.transactions[0].outputs[0][1] != config("block reward"):
         logging.info("Message is an invalid block [block reward is incorrect]")
-        return (None, ""), -1
+        return None, -1
 
     # validate transactions
     for i, transaction in enumerate(block.transactions[1:]):
         if not validate_transaction(transaction, blockchain, block.prev_hash)[0]:
             logging.info("Message is an invalid block [transaction {} is invalid]".format(i))
-            return (None, ""), -1
+            return None, -1
 
     # validate merkle root hash
     transaction_hash = calculate_merkle_root_hash(block.transactions)
 
     if block.merkle_root_hash != transaction_hash:
         logging.info("Message is an invalid block [merkle root hash is invalid]")
-        return (None, ""), -1
+        return None, -1
 
     # validate transactions are in order
     for i in range(1, len(block.transactions) - 1):
         if block.transactions[i] < block.transactions[i + 1]:
             logging.info("Message is an invalid block [transactions are not in order]")
-            return (None, ""), -1
+            return None, -1
 
     # check for overlaps
     for t1 in range(1, len(block.transactions)):
@@ -770,7 +770,7 @@ def handle_message_block(message, blockchain):
             if not t1 == t2:
                 if block.transactions[t1].overlap(block.transactions[t2]):
                     logging.info("Message is an invalid block [block contains two outputs with the same key]")
-                    return (None, ""), -1
+                    return None, -1
 
     # append to database
     blockchain.append(block.block_number, block.timestamp, block.difficulty, block.nonce, block.prev_hash,
@@ -795,7 +795,7 @@ def handle_message_block(message, blockchain):
 
     # return message
     logging.info("Message is a valid block")
-    return ("{}{}".format(calculate_message_length(block.network_format()), block.network_format()), "block"), 1
+    return "{}{}".format(calculate_message_length(block.network_format()), block.network_format()), 1
 
 
 def handle_message_block_request(message, blockchain):
@@ -815,7 +815,7 @@ def handle_message_block_request(message, blockchain):
     if len(message) != 71:
         # message not in correct format
         logging.info("Message is an invalid block request")
-        return (None, ""), -1
+        return None, -1
     else:
         block_number = int(message[1:7], 16)
         previous_block_hash = message[7:]
@@ -823,12 +823,12 @@ def handle_message_block_request(message, blockchain):
         if block_number == 0 and previous_block_hash.replace("0", ""):
             # message in incorrect format
             logging.info("Message is an invalid block request")
-            return (None, ""), -1
+            return None, -1
         elif block_number == 0:
             try:
                 block = blockchain.get_block_consensus_chain(blockchain.__len__())
             except IndexError:
-                return (None, ""), -1
+                return None, -1
         else:
             # return requested block if have, else return nothing
             block = blockchain.__getitem__(block_number, prev_hash=previous_block_hash)
@@ -836,10 +836,10 @@ def handle_message_block_request(message, blockchain):
         if block:
             reply = block.network_format()
             logging.info("Message is a valid block request")
-            return ("{}{}".format(calculate_message_length(reply), reply), "block"), 1
+            return "{}{}".format(calculate_message_length(reply), reply), 1
         else:
             logging.info("Message is an invalid block request")
-            return (None, ""), -1
+            return None, -1
 
 
 def handle_message_blocks(message, blockchain):
@@ -878,7 +878,7 @@ def handle_message_blocks(message, blockchain):
 
         message = message[int(size, 16) + size_length:]
 
-    return (None, ""), -1
+    return None, -1
 
 
 def handle_message_blocks_request(message, blockchain):
@@ -909,7 +909,7 @@ def handle_message_blocks_request(message, blockchain):
             if block:
                 reply += "{}{}".format(calculate_message_length(block.network_format()), block.network_format())
     logging.info("Message is a block request message")
-    return ("{}{}".format(calculate_message_length(reply), reply), "blocks"), 1
+    return "{}{}".format(calculate_message_length(reply), reply), 1
 
 
 def handle_message_error(message):
@@ -923,7 +923,7 @@ def handle_message_error(message):
     if not isinstance(message, str):
         raise TypeError("handle_message_error: expected message to be of type str")
     logging.info("Message is an error message [{}]".format(dehexify_string(message[1:])))
-    return (None, ""), -1
+    return None, -1
 
 
 def handle_message_peers(message):
@@ -938,11 +938,11 @@ def handle_message_peers(message):
         raise TypeError("handle_message_peers: expected message to be of type str")
     if len(message) < 3:
         logging.info("Message is an invalid peer message")
-        return (None, ""), -1
+        return None, -1
     peer_count = int(message[1:3], 16)
     if len(message) < 3 + 8 * peer_count:
         logging.info("Message is an invalid peer message")
-        return (None, ""), -1
+        return None, -1
     logging.info("Message is a peer message")
     message = message[3:]
 
@@ -957,7 +957,7 @@ def handle_message_peers(message):
         addresses.append(address)
         message = message[8:]
     threading.Thread(name="Peer Seeding Thread", target=initialize_clients, args=(addresses, 8333,)).start()
-    return (None, ""), -1
+    return None, -1
 
 
 def handle_message_peers_request():
@@ -969,7 +969,7 @@ def handle_message_peers_request():
     logging.info("Message is a peer request message")
     reply = build_peers_message(sockets.array)
     reply = "{}{}".format(hexify(len(reply), 5), reply)
-    return (reply, "peers"), 1
+    return reply, 1
 
 
 def handle_message_transaction(message, blockchain):
@@ -990,132 +990,24 @@ def handle_message_transaction(message, blockchain):
         transaction = Transaction.from_network_format(message)
     except ValueError:
         logging.info("Message is an invalid transaction message [message format invalid]")
-        return (None, ""), -1
+        return None, -1
     else:
         if transaction in transactions:
             logging.info("Message is a previously received transaction message")
-            return (None, ""), -1
+            return None, -1
         msg_validity = validate_transaction(transaction, blockchain)
         if msg_validity[0]:
             transactions.append(transaction)
             logging.info("Message is a transaction message")
-            return ("{}{}".format(hexify(len(message), 5), message), "transaction"), 2
+            return "{}{}".format(hexify(len(message), 5), message), 2
         else:
             logging.info("Message is an invalid transaction message [{}]".format(msg_validity[1]))
-            return (None, ""), -1
+            return None, -1
 
 
 """
-Block Miner Function
+Wallet Server Functions
 """
-
-
-def find_nonce(difficulty, previous_hash, merkle_tree_root_hash):
-    """
-    finds nonce for new block
-    :param difficulty: difficulty of block to find nonce for
-    :type difficulty: int
-    :param previous_hash: hash of the previous block
-    :type previous_hash: str
-    :param merkle_tree_root_hash: hash of the block's transactions merkle tree root
-    :type merkle_tree_root_hash: str
-    :return: nonce of the block
-    :rtype: int
-    """
-    if not isinstance(difficulty, int):
-        raise TypeError("find_nonce: expected nonce to be of type int")
-    if not isinstance(previous_hash, str):
-        raise TypeError("find_nonce: expected prev_hash to be of type str")
-    if not isinstance(merkle_tree_root_hash, str):
-        raise TypeError("find_nonce: expected merkle_hash to be of type str")
-
-    nonce = 0
-
-    block_hash = calculate_hash(previous_hash, merkle_tree_root_hash, nonce)
-    bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
-
-    while bin_hash[:difficulty] != "0" * difficulty:
-        nonce += 1
-        block_hash = calculate_hash(previous_hash, merkle_tree_root_hash, nonce)
-        bin_hash = bin(int(block_hash, 16))[2:].zfill(256)
-
-        if flags["received new block"]:
-            return -1
-
-    return nonce
-
-
-def mine_new_block(blockchain):
-    """
-    mining thread target function, creates new block in consensus chain
-    :param blockchain: blockchain to append new block to, and to get
-    data from
-    :type blockchain: Blockchain
-    :return: pushes block message into thread_queue if new block found, otherwise doesn't push anything into
-    thread_queue
-    """
-    if not isinstance(blockchain, Blockchain):
-        raise TypeError("mine_new_block: expected blockchain to be of type Blockchain")
-
-    public_key = config("public key")
-
-    block_number = blockchain.__len__() + 1
-    logging.info("Began mining new block, number {}".format(block_number))
-
-    difficulty_change_count = config("difficulty change count")
-    if block_number <= difficulty_change_count:
-        difficulty = config("default difficulty")
-    else:
-        ceiling = difficulty_change_count * math.floor((block_number - 1) / difficulty_change_count)
-        floor = ceiling - difficulty_change_count + 1
-        delta_t = blockchain.get_block_consensus_chain(ceiling).timestamp() - blockchain.get_block_consensus_chain(
-            floor).timestamp
-        difficulty = calculate_difficulty(delta_t, blockchain.get_block_consensus_chain(ceiling - 1).difficulty)
-
-    logging.debug("New block's difficulty is {}".format(difficulty))
-
-    if block_number == 1:
-        prev_hash = "0" * 64
-    else:
-        prev_hash = blockchain.get_block_consensus_chain(blockchain.__len__()).self_hash
-
-    block_transactions = []
-    all_transactions = transactions.array
-    for t in all_transactions:
-        overlap = False
-        for t2 in block_transactions:
-            if t.overlap(t2):
-                overlap = True
-        if not overlap:
-            block_transactions.append(t)
-        if len(block_transactions) == 64:
-            break
-    block_transactions.sort(key=Transaction.sort_key, reverse=True)
-
-    source_transaction = Transaction(int(datetime.datetime.now().timestamp()), [],
-                                     [(public_key, config("block reward"))])
-
-    final_block_transactions = [source_transaction] + block_transactions
-
-    merkle_root_hash = calculate_merkle_root_hash(final_block_transactions)
-
-    nonce = find_nonce(difficulty, prev_hash, merkle_root_hash)
-
-    if nonce != -1:
-        self_hash = calculate_hash(prev_hash, merkle_root_hash, nonce)
-        blockchain.append(block_number, int(datetime.datetime.now().timestamp()), difficulty, nonce, prev_hash,
-                          merkle_root_hash, final_block_transactions, self_hash)
-
-        block = blockchain.get_block_consensus_chain(blockchain.__len__())
-
-        message = block.network_format()
-        thread_queue.put("{}{}".format(calculate_message_length(message), message))
-        flags["created new block"] = True
-        logging.info("Created new block")
-
-    else:
-        logging.info("Stopped mining new block, number {}".format(block_number))
-        return
 
 
 """
@@ -1124,48 +1016,53 @@ Main Function
 
 
 def main():
-    # load global variables
     global thread_queue
     global flags
     global sockets
     global message_queues
 
-    # initiate flags
+    wallet_inputs = []
+    wallet_outputs = []
+    wallet_message_queues = {}
+
+    threading.current_thread().name = "MainNodeThread"
+
     flags["received new block"] = False
     flags["created new block"] = False
     flags["exception"] = False
     flags["finished seeding"] = False
-    flags["mining thread running"] = False
 
-    # get variables from configuration file
-    ip = config("ip address")
-    port = config("port")
+    ip = config("node ip address")
+    port = config("node port")
+    wallet_ip = config("wallet ip address")
+    wallet_port = config("wallet port")
     seed_ip = config("seed address")
     seed_port = config("seed port")
     sql_address = config("sql address")
     sql_user = config("sql user")
     sql_password = config("sql password")
 
-    # initiate other variables
     blockchain = Blockchain(sql_address, sql_user, sql_password)
-    connection_errors = (OSError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError, ConnectionError)
 
-    # initiate server socket
     server_socket = initialize_server(ip, port)
     if not server_socket:
-        logging.critical("Server: Could not initialize socket. Terminating...")
+        logging.critical("Could not initialize server socket. Terminating. . .")
         exit(-1)
-    else:
-        logging.info("Server: Initiated [{}, {}]".format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
 
-    # initiate seeding & mining thread
+    wallet_server_socket = initialize_server(wallet_ip, wallet_port)
+    if not wallet_server_socket:
+        logging.critical("Could not initialize wallet server socket. Terminating. . .")
+        server_socket.close()
+        exit(-1)
+
+    logging.info("Server: Initiated [{}, {}]"
+                 .format(server_socket.getsockname()[0], server_socket.getsockname()[1]))
+
     seeding_thread = threading.Thread(name="Seeding Thread", target=seed_clients, args=(seed_ip, seed_port, port,))
     seeding_thread.start()
 
-    mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-    if len(sockets):
-        mining_thread.start()
-        flags["mining_thread_running"] = True
+    get_most_recent_block = "00047c0000000000000000000000000000000000000000000000000000000000000000000000"
+    connection_errors = (ConnectionError, ConnectionResetError, ConnectionRefusedError, ConnectionAbortedError, OSError)
 
     while True:
         inputs = sockets.array + [server_socket]
@@ -1173,17 +1070,16 @@ def main():
 
         for sock in readable:
             if sock is server_socket:
+                logging.info("New node attempting connection to server")
                 client_socket, address = server_socket.accept()
 
                 exists = False
                 for other_sock in sockets:
                     if other_sock.getpeername()[0] == address[0]:
+                        logging.info("[{}, {}]: Connection already exists".format(address[0], address[1]))
+                        client_socket.close()
                         exists = True
-
-                if exists:
-                    logging.info("[{}, {}]: Node attempted connection to server, but connection already exists".format(address[0], address[1]))
-                    client_socket.close()
-                else:
+                if not exists:
                     sockets.append(client_socket)
                     logging.info("[{}, {}]: Node connected to server".format(address[0], address[1]))
 
@@ -1191,7 +1087,7 @@ def main():
 
                     if address[0] not in message_queues:
                         message_queues[address[0]] = queue.Queue()
-                    message_queues[address[0]].put("00047c0000000000000000000000000000000000000000000000000000000000000000000000")
+                    message_queues[address[0]].put(get_most_recent_block)
 
             else:
                 try:
@@ -1202,8 +1098,8 @@ def main():
 
                 else:
                     if size:
-                        size_length = 5
                         try:
+                            size_length = 5
                             while size.replace('f', "") == "":
                                 size_length *= 2
                                 size = sock.recv(size_length).decode()
@@ -1215,33 +1111,33 @@ def main():
                         else:
                             try:
                                 message = sock.recv(int(size, 16)).decode()
-
+                                logging.info("[{}, {}]: Received message from node".format(sock.getpeername()[0],
+                                                                                           sock.getpeername()[1]))
                             except connection_errors:
+                                logging.info(
+                                    "[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
                                 sock.close()
                                 sockets.remove(sock)
 
                             else:
-                                logging.info("[{}, {}]: Received message from node".format(sock.getpeername()[0],
-                                                                                           sock.getpeername()[1]))
                                 reply = handle_message(message, blockchain)
 
                                 if reply[1] == -1:
-                                    logging.info("[{}, {}]: No reply")
+                                    logging.debug("No reply")
 
                                 if reply[1] == 1:
-                                    logging.info("[{}, {}]: Replying to sender")
+                                    logging.debug("Replying to sender")
                                     if sock.getpeername()[0] not in message_queues:
                                         message_queues[sock.getpeername()[0]] = queue.Queue()
                                     message_queues[sock.getpeername()[0]].put(reply[0])
 
                                 elif reply[1] == 2:
-                                    logging.info("[{}, {}]: Sending reply to all nodes")
+                                    logging.debug("Sending reply to all nodes")
 
                                     for other_sock in sockets:
                                         if other_sock.getpeername()[0] not in message_queues:
                                             message_queues[other_sock.getpeername()[0]] = queue.Queue()
                                         message_queues[other_sock.getpeername()[0]].put(reply[0])
-
                     else:
                         logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
                         address = sock.getpeername()[0]
@@ -1258,82 +1154,37 @@ def main():
 
         for sock in writable:
             try:
-                address = sock.getpeername()
-            except connection_errors:
+                address = sock.getpeername()[0]
+            except OSError:
                 sock.close()
-                sockets.remove(sock)
-
             else:
-                if address[0] in message_queues:
-                    if not message_queues[address[0]].empty():
-                        message = message_queues[address[0]].get()
+                if address in message_queues:
+                    if not message_queues[address].empty():
+                        message = message_queues[address].get()
                         try:
-                            sock.send(message[0].encode())
-
-                        except connection_errors:
+                            sock.send(message.encode())
+                        except ConnectionResetError:
                             sock.close()
                             sockets.remove(sock)
                         else:
-                            logging.info("[{}, {}]: Sent {} message to node".format(address[0], address[1], message[1]))
+                            logging.info("[{}, {}]: Sent message to node".format(address, sock.getpeername()[1]))
 
         for sock in exceptional:
-            try:
-                address = sock.getpeername()
-            except connection_errors:
-                sock.close()
-                sockets.remove(sock)
-            else:
-                sock.close()
-                sockets.remove(sock)
-                for other_sock in sockets:
-                    if other_sock.getpeername()[0] == address:
-                        other_sock.close()
-                        sockets.remove(other_sock)
+            address = sock.getpeername()[0]
+            for other_sock in sockets:
+                if other_sock.getpeername()[0] == address:
+                    other_sock.close()
+                    sockets.remove(other_sock)
 
-                if address in message_queues:
-                    del message_queues[address]
-
-                logging.info("[{}, {}]: Node disconnected from server".format(address[0], address[1]))
-
-        if flags["received new block"]:
-            flags["received new block"] = False
-
-            if flags["mining thread running"]:
-                mining_thread.join()
-                flags["mining thread running"] = False
-
-            if not thread_queue.empty():
-                while not thread_queue.empty():
-                    thread_queue.get()
-
-            if len(sockets):
-                mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-                mining_thread.start()
-                mining_thread_running = True
-
-        if flags["created new block"]:
-            flags["created new block"] = False
-
-            if flags["mining thread running"]:
-                mining_thread.join()
-                flags["mining thread running"] = False
-
-            if not thread_queue.empty():
-                message = thread_queue.get()
-                logging.debug("Sending new block to all nodes")
-
-                for sock in sockets:
-                    if sock.getpeername()[0] not in message_queues:
-                        message_queues[sock.getpeername()[0]] = queue.Queue()
-                    message_queues[sock.getpeername()[0]].put(message)
-
-            if len(sockets):
-                mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
-                mining_thread.start()
-                flags["mining_thread_running"] = True
+            if address in message_queues:
+                del message_queues[address]
 
         if flags["finished seeding"]:
             seeding_thread.join()
+
+        if flags["exception"]:
+            # TODO: handle exceptions
+            pass
 
         if not flags["mining_thread_running"] and len(sockets):
             mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
@@ -1353,6 +1204,20 @@ def main():
         for address in sock_removals:
             logging.info("[{}, N/A] Node disconnected".format(address))
             del message_queues[address]
+
+        readable, writable, exceptional = select.select([wallet_server_socket] + inputs, wallet_outputs, inputs)
+
+        for sock in readable:
+            if sock is wallet_server_socket:
+                pass
+            else:
+                pass
+
+        for sock in writable:
+            pass
+
+        for sock in exceptional:
+            pass
 
 
 if __name__ == '__main__':

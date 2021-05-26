@@ -46,9 +46,10 @@ class WalletWindow(Tk):
         # buttons
         self.b_frame = Frame(self)
 
-        self.config_button = Button(self.b_frame, font=("Times New Roman", 30), text="⚙", command=self.configure_command)
-        self.refresh_button = Button(self.b_frame, font=("Times New Roman", 30), text="⟳", command=self.refresh_command)
-        self.pay_button = Button(self.b_frame, font=("Times New Roman", 30), text="💳", command=self.pay_command)
+        self.config_button = Button(self.b_frame, width=10, font=("Times New Roman", 12), text="Configure\n⚙",
+                                    command=self.configure_command)
+        self.refresh_button = Button(self.b_frame, width=10, font=("Times New Roman", 12), text="Refresh\n⟳", command=self.refresh_command)
+        self.pay_button = Button(self.b_frame, width=10, font=("Times New Roman", 12), text="Pay\n💳", command=self.pay_command)
 
         # packing
         self.title.pack(side=TOP)
@@ -82,8 +83,8 @@ class WalletWindow(Tk):
         types = {
             "server ip address": str,
             "server port": int,
-            "public key location": str,
-            "private key location": str
+            "public key": str,
+            "private key": str
         }
 
         entries = []
@@ -127,58 +128,82 @@ class WalletWindow(Tk):
         try:
             sock.connect((self.config("server ip address"), self.config("server port")))
 
-            size_length = 5
-            size = sock.recv(size_length).decode()
-
-            while size.replace('f', '') == '':
-                size_length *= 2
-                size = sock.recv(size_length).decode()
-
-            size = int(size, 16)
-
-            data = sock.recv(size)
-
-            self.title_text.set(data[1:9])
-
-            data = data[9:]
-
-            t_count = data[9:15]
-            data = data[15:]
-            self.transactions = []
-            for x in range(int(t_count, 16)):
-                transaction_size = data[:5]
-
-                transaction = Transaction.from_network_format(data[5:5 + transaction_size])
-
-            data = data[5 + transaction_size:]
-
-        except (TimeoutError, ConnectionError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError):
+        except (ConnectionError, ConnectionResetError, ConnectionRefusedError, OSError) as e:
             messagebox.showerror(title="Connection Error",
-                                 message="Failed to connect to wallet server, please try again by refreshing. . .")
-        except OSError:
-            messagebox.showerror(title="OS Error", message="OS Error, please check wallet configuration")
+                                 message="Failed to connect to wallet server.\nPlease try again by refreshing.\nError: {}".format(
+                                     e))
         else:
-            if not len(self.transactions):
-                pass
+            try:
+                sock.send(self.build_wallet_request_message(self.config("public key")))
+            except (
+            ConnectionError, ConnectionResetError, ConnectionRefusedError, ConnectionAbortedError, OSError) as e:
+                messagebox.showerror(title="Connection Error",
+                                     message="Failed to send request to wallet server.\nPlease try again by refreshing.\n Error: {}".format(
+                                         e))
             else:
-                self.index = 0
-                self.t_data["state"] = "normal"
-                self.t_data.delete(1.0, END)
-                self.t_data(END, str(self.transactions[self.index]))
-                self.t_data["state"] = "disabled"
+                size_length = 5
+                try:
+                    size = sock.recv(size_length).decode()
 
-                self.prev_button["state"] = "disabled"
+                    while size.replace('f', '') == '':
+                        size_length *= 2
+                        size = sock.recv(size_length).decode()
+                except (
+                ConnectionError, ConnectionResetError, ConnectionRefusedError, ConnectionAbortedError, OSError) as e:
+                    messagebox.showerror(title="Connection Error",
+                                         message="Failed to receive reply from wallet server.\nPlease try again by refreshing.\nError: {}".format(
+                                             e))
 
-                if len(self.transactions) > 1:
-                    self.next_button["state"] = "normal"
                 else:
-                    self.next_button["state"] = "disabled"
+                    size = int(size, 16)
+                    try:
+                        data = sock.recv(size)
+                    except (ConnectionError, ConnectionResetError, ConnectionRefusedError, ConnectionAbortedError,
+                            OSError) as e:
+                        messagebox.showerror(title="Connection Error",
+                                             message="Failed to receive reply from wallet server.\nPlease try again by refreshing.\nError: {}".format(
+                                                 e))
+                    else:
+
+                        self.title_text.set(data[1:9])
+
+                        data = data[9:]
+
+                        t_count = data[:6]
+                        data = data[6:]
+                        self.transactions = []
+                        for x in range(int(t_count, 16)):
+                            transaction_size = data[:5]
+
+                            transaction = Transaction.from_network_format(data[5:5 + transaction_size])
+                            self.transactions.append(transaction)
+
+                            data = data[5 + transaction_size:]
+
+                        if not len(self.transactions):
+                            self.t_data.insert(END, "")
+                            self.next_button["state"] = "disabled"
+                            self.prev_button["state"] = "disabled"
+                        else:
+                            self.index = 0
+                            self.t_data["state"] = "normal"
+                            self.t_data.delete(1.0, END)
+                            self.t_data.insert(END, str(self.transactions[self.index]))
+                            self.t_data["state"] = "disabled"
+
+                            self.prev_button["state"] = "disabled"
+
+                            if len(self.transactions) > 1:
+                                self.next_button["state"] = "normal"
+                            else:
+                                self.next_button["state"] = "disabled"
+
+                        sock.close()
 
     def pay_command(self):
         self.pay_window = Tk()
         self.pay_window.iconbitmap("Dependencies\\wallet.ico")
         self.pay_window.title("")
-
 
         self.pay_window.protocol("WM_DELETE_WINDOW", self.pay_on_closing)
 
@@ -202,15 +227,6 @@ class WalletWindow(Tk):
         pass
 
     def process_payment(self, window, destination_entry, amount_entry):
-        """
-
-        :param destination_entry:
-        :type destination_entry: Entry
-        :param amount_entry:
-        :type amount_entry: Entry
-        :return:
-        :rtype:
-        """
 
         destination_address = destination_entry.get()
         amount = amount_entry.get()
@@ -235,24 +251,32 @@ class WalletWindow(Tk):
             sock = socket.socket()
             msg = self.build_payment_message(self.config("public key"), destination_address, amount)
             try:
-                sock.connect((self.config("server ip address"), self.config("server port")))
-                sock.send(msg.encode())
+                sock.connect((self.config("server ip address"), self.config("server port")))\
 
-                # handle data
-            except (TimeoutError, ConnectionError, ConnectionResetError, ConnectionRefusedError, ConnectionAbortedError):
-                messagebox.showerror(title="Connection Error", message="Error while sending transaction to server")
+            except (OSError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError, ConnectionError) as e:
+                messagebox.showerror(title="Connection Error", message="Failed to connect to server.\nPlease try again.\nError: {}".format(e))
 
             else:
-                messagebox.showinfo(message="Sent transaction!")
                 try:
-                    size = int(sock.recv(5).decode(), 16)
-
-                    data = sock.recv(size)
-                except (ConnectionError, ConnectionResetError, ConnectionRefusedError, ConnectionAbortedError):
-                    messagebox.showerror(title="Connection Error", message="Error while receiving response from server")
+                    sock.send(msg.encode())
+                except (OSError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError, ConnectionError) as e:
+                    messagebox.showerror(title="Connection Error", message="Failed to send payment message to server.\nPlease try again.\nError: {}".format(e))
                 else:
-                    messagebox.showinfo(title="Server Response", message=self.parse_server_response(data))
-                    window.destroy()
+                    messagebox.showinfo(message="Sent Transaction!\nTransaction is now pending @ wallet server.")
+
+                    try:
+                        size = sock.recv(5)
+                    except (OSError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError, ConnectionError) as e:
+                        messagebox.showerror(title="Connection Error", message="Failed to receive reply to server.\nError: {}".format(e))
+                    else:
+                        try:
+                            data = sock.recv(int(size, 16))
+                        except (OSError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError, ConnectionError) as e:
+                            messagebox.showerror(title="Connection Error", message="Failed to receive reply to server.\nError: {}".format(e))
+                        else:
+                            sock.close()
+                            messagebox.showinfo(title="Server Response", message=self.parse_server_response(data))
+                            window.destroy()
 
     def next_command(self):
         self.index += 1
@@ -312,6 +336,10 @@ class WalletWindow(Tk):
                 return configuration.get(key)
 
     @staticmethod
+    def build_wallet_request_message(src_key):
+        return "00145i{}".format(src_key)
+
+    @staticmethod
     def build_payment_message(src_key, dest_key, amount):
         """
 
@@ -328,44 +356,9 @@ class WalletWindow(Tk):
 
     @staticmethod
     def parse_server_response(data):
-        """
-
-        :param data:
-        :type data:
-        :return:
-        :rtype: str
-        """
+        pass
 
     pass
-
-
-def on_closing():
-    exit(-1)
-
-
-def build_wallet_amount_message():
-    msg = "i{}".format(config("public key"))
-    return "00145{}".format(msg)
-
-
-def load_wallet(window, amount_text, data_text):
-    sock = socket.socket()
-
-    try:
-        sock.connect((config("server ip"), config("server port")))
-
-        sock.send(build_wallet_amount_message().encode())
-
-        size = int(sock.recv(5), 16)
-
-        data = sock.recv(size).decode()
-
-        amount = int(data, 16)
-    except (ConnectionResetError, ConnectionRefusedError, ConnectionAbortedError, ConnectionError):
-        tk.messagebox.showinfo(title="Error",
-                               message="Error connecting to wallet server, please re-attempt by refreshing")
-
-    amount_text.set("{} SittCoin".format(amount))
 
 
 def main():
