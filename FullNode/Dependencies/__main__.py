@@ -1229,22 +1229,22 @@ def main():
                                                                                            sock.getpeername()[1]))
                                 reply = handle_message(message, blockchain)
 
-                                if reply[1] == -1:
+                                if reply[2] == -1:
                                     logging.info("[{}, {}]: No reply")
 
-                                if reply[1] == 1:
+                                if reply[2] == 1:
                                     logging.info("[{}, {}]: Replying to sender")
                                     if sock.getpeername()[0] not in message_queues:
                                         message_queues[sock.getpeername()[0]] = queue.Queue()
-                                    message_queues[sock.getpeername()[0]].put(reply[0])
+                                    message_queues[sock.getpeername()[0]].put(reply[0], reply[1])
 
-                                elif reply[1] == 2:
+                                elif reply[2] == 2:
                                     logging.info("[{}, {}]: Sending reply to all nodes")
 
                                     for other_sock in sockets:
                                         if other_sock.getpeername()[0] not in message_queues:
                                             message_queues[other_sock.getpeername()[0]] = queue.Queue()
-                                        message_queues[other_sock.getpeername()[0]].put(reply[0])
+                                        message_queues[other_sock.getpeername()[0]].put(reply[0], reply[1])
 
                     else:
                         logging.info("[{}, {}]: Node disconnected".format(sock.getpeername()[0], sock.getpeername()[1]))
@@ -1329,7 +1329,7 @@ def main():
                 for sock in sockets:
                     if sock.getpeername()[0] not in message_queues:
                         message_queues[sock.getpeername()[0]] = queue.Queue()
-                    message_queues[sock.getpeername()[0]].put(message)
+                    message_queues[sock.getpeername()[0]].put(message, "new block")
 
             mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
             mining_thread.start()
