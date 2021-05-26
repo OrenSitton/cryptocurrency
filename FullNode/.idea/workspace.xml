@@ -3,12 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="2b95a56a-d8ca-4b9f-9b02-2506b1622c62" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/BlockTest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/__main__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/Dependencies/config.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FullNode.py" beforeDir="false" afterPath="$PROJECT_DIR$/FullNode.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Wallet/Dependencies/config.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet/Dependencies/config.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Wallet/Wallet.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet/Wallet.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Wallet Server/tmp.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Wallet Server/tmp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../testFiles/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/../testFiles/test3.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />

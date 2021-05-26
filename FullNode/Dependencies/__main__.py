@@ -1309,7 +1309,7 @@ def main():
             if len(sockets):
                 mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
                 mining_thread.start()
-                mining_thread_running = True
+                flags["mining thread_running"] = True
 
         if flags["created new block"]:
             flags["created new block"] = False
@@ -1330,12 +1330,12 @@ def main():
             if len(sockets):
                 mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
                 mining_thread.start()
-                flags["mining_thread_running"] = True
+                flags["mining thread_running"] = True
 
         if flags["finished seeding"]:
             seeding_thread.join()
 
-        if not flags["mining_thread_running"] and len(sockets):
+        if not flags["mining thread_running"] and len(sockets):
             mining_thread = threading.Thread(name="Mining Thread ", target=mine_new_block, args=(blockchain,))
             mining_thread.start()
             flags["mining thread running"] = True
@@ -1358,3 +1358,4 @@ def main():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format="%(threadName)s [%(asctime)s]: %(message)s")
     main()
+
