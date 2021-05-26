@@ -1264,24 +1264,25 @@ def main():
                                 sockets.remove(other_sock)
 
         for sock in writable:
-            try:
-                address = sock.getpeername()
-            except connection_errors:
-                sock.close()
-                sockets.remove(sock)
+            if sock in sockets:
+                try:
+                    address = sock.getpeername()
+                except connection_errors:
+                    sock.close()
+                    sockets.remove(sock)
 
-            else:
-                if address[0] in message_queues:
-                    if not message_queues[address[0]].empty():
-                        message = message_queues[address[0]].get()
-                        try:
-                            sock.send(message[0].encode())
+                else:
+                    if address[0] in message_queues:
+                        if not message_queues[address[0]].empty():
+                            message = message_queues[address[0]].get()
+                            try:
+                                sock.send(message[0].encode())
 
-                        except connection_errors:
-                            sock.close()
-                            sockets.remove(sock)
-                        else:
-                            logging.info("[{}, {}]: Sent {} message to node".format(address[0], address[1], message[1]))
+                            except connection_errors:
+                                sock.close()
+                                sockets.remove(sock)
+                            else:
+                                logging.info("[{}, {}]: Sent {} message to node".format(address[0], address[1], message[1]))
 
         for sock in exceptional:
             if sock in sockets:
